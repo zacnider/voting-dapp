@@ -367,7 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Web3'ü başlat
     initWeb3();
   }, 1000);
-});
+);
   // Ethereum provider kontrolü için setTimeout kullanarak
   // tarayıcı eklentilerinin yüklenmesi için zaman tanıyoruz
   setTimeout(initializeWeb3Environment, 1000);
