@@ -632,7 +632,7 @@ newButton.addEventListener('click', async () => {
     console.error("Cüzdan bağlantısı genel hata:", error);
     showErrorMessage("Cüzdan bağlantısı sırasında beklenmeyen bir hata oluştu.");
   }
-});
+}
   
 
 // Doğru ağa bağlı olduğunu kontrol eden fonksiyon
