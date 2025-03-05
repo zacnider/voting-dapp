@@ -798,6 +798,12 @@ function hideLoading() {
   }
 }
 
+// Mesajları temizleyen fonksiyon
+function clearMessages() {
+  const messages = document.querySelectorAll('.error-message, .success-message');
+  messages.forEach(message => message.remove());
+}
+
 // Hata mesajı gösteren fonksiyon
 function showErrorMessage(message) {
   // Önceki hata mesajlarını temizle
@@ -831,4 +837,28 @@ function showSuccessMessage(message) {
     successElement.textContent = message;
     
     // Main'in başına ekle
-    main
+    main.insertBefore(successElement, main.firstChild);
+    
+    // 5 saniye sonra mesajı kaldır
+    setTimeout(() => {
+      successElement.remove();
+    }, 5000);
+  }
+}
+
+// Cüzdan uyarısı gösteren fonksiyon
+function showWalletWarning() {
+  const main = document.querySelector('main');
+  if (main) {
+    const warningElement = document.createElement('div');
+    warningElement.className = 'wallet-warning';
+    warningElement.innerHTML = `
+      <h3>Cüzdan Bulunamadı</h3>
+      <p>Bu uygulamayı kullanmak için bir Ethereum cüzdanı gereklidir.</p>
+      <p>Lütfen <a href="https://metamask.io/" target="_blank">MetaMask</a> kurarak tekrar deneyin.</p>
+    `;
+    
+    // Main'in başına ekle
+    main.insertBefore(warningElement, main.firstChild);
+  }
+}
