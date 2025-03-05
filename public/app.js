@@ -274,7 +274,7 @@ let votingContract;
 let userAddress = ''; // String olarak tanımla
 let blockchains = [];
 let hasUserPaidFee = false;
-const TEST_MODE = false; // Test modu kapalı
+
 
 
 // Sayfa yüklendiğinde çalışacak kod
