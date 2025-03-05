@@ -271,9 +271,11 @@ const contractAddress = "0x6753f6B230ee795FD518426e5FE0D25Df9E16E99"; // Gerçek
 // Global değişkenler
 let web3;
 let votingContract;
-let userAddress;
-let hasUserPaidFee = false;
+let userAddress = ''; // String olarak tanımla
 let blockchains = [];
+let hasUserPaidFee = false;
+const TEST_MODE = false; // Test modu kapalı
+
 
 // Sayfa yüklendiğinde çalışacak kod
 document.addEventListener('DOMContentLoaded', function() {
@@ -469,15 +471,12 @@ async function checkConnection() {
     // Hesap kontrolü
     if (accounts && accounts.length > 0) {
       // Array içindeki ilk hesabı alın (bir string olmalı)
-      const account = accounts;
-      console.log("Bağlandı, hesap:", account);
-      
-      // userAddress'i güncelle
-      userAddress = account;
+      userAddress = String(accounts); // String'e çevir
+      console.log("Bağlandı, hesap (string):", userAddress);
       
       try {
         // Adresin kısaltılmış halini göster
-        const shortAddress = account.substring(0, 6) + "..." + account.substring(account.length - 4);
+        const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
         
         // Eğer wallet-address ID'li bir element varsa güncelle
         const walletAddressElement = document.getElementById('wallet-address');
@@ -486,7 +485,7 @@ async function checkConnection() {
         }
       } catch (error) {
         console.error("Adres kısaltma hatası:", error);
-        console.log("Adres tipi:", typeof account, account);
+        console.log("Adres tipi:", typeof userAddress, userAddress);
       }
       
       return true;
@@ -506,24 +505,21 @@ async function checkUserPaymentStatus() {
     console.log("Kullanıcı ödeme durumu kontrol ediliyor...");
     
     if (TEST_MODE) {
-      // Test modunda - varsayılan olarak false
-      hasUserPaidFee = false;
-      console.log("TEST MODU: Kullanıcı ücret ödemiş mi:", hasUserPaidFee);
-      return;
+      // Test modunda ödeme durumunu false olarak döndür
+      return false;
     }
     
-    // Gerçek kontrat çağrısı:
-    try {
-      hasUserPaidFee = await votingContract.methods.hasUserPaid(userAddress).call();
-    } catch (error) {
-      console.error("Kontrat çağrısı hatası:", error);
-      hasUserPaidFee = false;
+    if (!userAddress) {
+      console.log("Kullanıcı adresi bulunamadı, ödeme kontrolü yapılamıyor.");
+      return false;
     }
     
-    console.log("Kullanıcı ücret ödemiş mi:", hasUserPaidFee);
+    // Kontrat üzerinden kullanıcının ödeme yapıp yapmadığını kontrol et
+    const hasPaid = await votingContract.methods.hasPaid(userAddress).call();
+    return hasPaid;
   } catch (error) {
-    console.error("Ödeme durumu kontrolü sırasında hata:", error);
-    hasUserPaidFee = false;
+    console.error("Kontrat çağrısı hatası:", error);
+    return false;
   }
 }
 
@@ -547,8 +543,8 @@ function showConnectButton() {
           // Test için sahte bir adres
           userAddress = "0x1234567890123456789012345678901234567890";
           
-          // Adresin kısaltılmış halini göster
           try {
+            // Adresin kısaltılmış halini göster
             const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
             const walletAddressElement = document.getElementById('wallet-address');
             if (walletAddressElement) {
@@ -570,26 +566,22 @@ function showConnectButton() {
         }
         
         // Cüzdan bağlantısı iste
-        const accounts = await provider.request({ method: 'eth_requestAccounts' });
+        let accounts = await provider.request({ method: 'eth_requestAccounts' });
         
         if (accounts && accounts.length > 0) {
-          // Array içindeki ilk hesabı alın (bir string olmalı)
-          const account = accounts;
-          console.log("Bağlandı, hesap:", account);
-          
-          // userAddress'i güncelle
-          userAddress = account;
+          // String olarak kaydet
+          userAddress = String(accounts);
+          console.log("Bağlandı, hesap (string):", userAddress);
           
           try {
             // Adresin kısaltılmış halini göster
-            const shortAddress = account.substring(0, 6) + "..." + account.substring(account.length - 4);
+            const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
             const walletAddressElement = document.getElementById('wallet-address');
             if (walletAddressElement) {
               walletAddressElement.textContent = shortAddress;
             }
           } catch (error) {
             console.error("Adres kısaltma hatası:", error);
-            console.log("Adres tipi:", typeof account, account);
           }
           
           // Bağlantı başarılı ise uygulamayı başlat
@@ -758,9 +750,12 @@ function setupEntryFeeButton() {
         const entryFee = await votingContract.methods.ENTRY_FEE().call();
         console.log("Giriş ücreti:", entryFee);
         
+        // userAddress'in string olduğunu kontrol et
+        console.log("Ödeme yapan adres (tipi):", typeof userAddress, userAddress);
+        
         // Kontrat metodu çağrısı
         await votingContract.methods.payEntryFee().send({
-          from: userAddress, // userAddress artık doğru bir string olmalı
+          from: userAddress,
           value: entryFee
         });
         
@@ -777,7 +772,6 @@ function setupEntryFeeButton() {
     });
   }
 }
- 
 
 // Blockchain kartlarını oluşturan fonksiyon
 function createBlockchainCards() {
@@ -832,9 +826,12 @@ async function voteForBlockchain(blockchainId) {
       return;
     }
     
+    // userAddress'in string olduğunu kontrol et
+    console.log("Oy veren adres (tipi):", typeof userAddress, userAddress);
+    
     // Gerçek oy verme kodu...
     await votingContract.methods.vote(blockchainId).send({
-      from: userAddress // userAddress artık doğru bir string olmalı
+      from: userAddress
     });
     
     await loadBlockchainData();
