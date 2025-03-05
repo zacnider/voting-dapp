@@ -273,7 +273,7 @@ let web3;
 let votingContract;
 let userAddress = ''; // String olarak tanımla
 let blockchains = [];
-let hasUserPaidFee = false;
+
 
 
 
@@ -409,9 +409,7 @@ async function initializeApp() {
       return;
     }
     
-    // Kullanıcının ödeme yapmış olup olmadığını kontrol et
-    hasUserPaidFee = await checkUserPaymentStatus();
-    console.log("Kullanıcı ücret ödemiş mi:", hasUserPaidFee);
+    // Ödeme kontrolünü kaldırdık
     
     // Blockchain verilerini yükle
     await loadBlockchainData();
@@ -778,101 +776,33 @@ async function loadBlockchainData() {
 
 // Kullanıcı arayüzünü güncelleyen fonksiyon
 function updateUI() {
-  try {
-    console.log("UI güncelleniyor...");
-    
-    // Cüzdan bağlantı durumu
-    const walletSection = document.getElementById('wallet-section');
-    if (walletSection && userAddress) {
-      walletSection.classList.add('connected');
-      
-      // Bağlantı butonunu gizle
-      const connectButton = document.getElementById('connect-wallet');
-      if (connectButton) {
-        connectButton.style.display = 'none';
-      }
-    }
-    
-    // Giriş ücreti ve oylama bölümlerini göster/gizle
-    const entrySection = document.getElementById('entry-section');
-    const votingSection = document.getElementById('voting-section');
-    
-    if (entrySection && votingSection) {
-      if (hasUserPaidFee) {
-        // Kullanıcı ücret ödemiş, oylama bölümünü göster
-        entrySection.style.display = 'none';
-        votingSection.style.display = 'block';
-        
-        // Blockchain kartlarını oluştur
-        createBlockchainCards();
-      } else if (userAddress) {
-        // Kullanıcı bağlı ama ücret ödememiş, giriş ücreti bölümünü göster
-        entrySection.style.display = 'block';
-        votingSection.style.display = 'none';
-        
-        // Giriş ücreti butonuna event listener ekle
-        setupEntryFeeButton();
-      } else {
-        // Kullanıcı bağlı değil, her iki bölümü de gizle
-        entrySection.style.display = 'none';
-        votingSection.style.display = 'none';
-      }
-    }
-  } catch (error) {
-    console.error("UI güncellenirken hata:", error);
+  console.log("UI güncelleniyor...");
+  
+  const walletSection = document.getElementById('wallet-section');
+  const voteSection = document.getElementById('vote-section');
+  const paymentSection = document.getElementById('payment-section'); // Bu bölümü gizleyeceğiz
+  const resultsSection = document.getElementById('results-section');
+  
+  // Cüzdan bağlı değilse
+  if (!userAddress) {
+    if (walletSection) walletSection.style.display = 'block';
+    if (voteSection) voteSection.style.display = 'none';
+    if (paymentSection) paymentSection.style.display = 'none'; // Ödeme bölümünü gizle
+    if (resultsSection) resultsSection.style.display = 'none';
+    return;
   }
-}
-
-// Giriş ücreti butonuna event listener ekleyen fonksiyon
-function setupEntryFeeButton() {
-  const entryFeeButton = document.getElementById('pay-entry-fee');
-  if (entryFeeButton) {
-    // Önceki event listener'ları temizle
-    const newButton = entryFeeButton.cloneNode(true);
-    entryFeeButton.parentNode.replaceChild(newButton, entryFeeButton);
-    
-    // Yeni event listener ekle
-    newButton.addEventListener('click', async () => {
-      try {
-        showLoading("Ödeme işlemi yapılıyor...");
-        
-        if (TEST_MODE) {
-          console.log("TEST MODU: Ödeme işlemi simüle ediliyor");
-          // Simüle edilmiş ödeme
-          setTimeout(() => {
-            hasUserPaidFee = true;
-            updateUI();
-            showSuccessMessage("Test modu: Giriş ücreti başarıyla ödendi! Artık oy kullanabilirsiniz.");
-            hideLoading();
-          }, 1500);
-          return;
-        }
-        
-        // Gerçek ödeme kodu...
-        const entryFee = await votingContract.methods.ENTRY_FEE().call();
-        console.log("Giriş ücreti:", entryFee);
-        
-        // userAddress'in string olduğunu kontrol et
-        console.log("Ödeme yapan adres (tipi):", typeof userAddress, userAddress);
-        
-        // Kontrat metodu çağrısı
-        await votingContract.methods.payEntryFee().send({
-          from: userAddress,
-          value: entryFee
-        });
-        
-        hasUserPaidFee = true;
-        updateUI();
-        
-        showSuccessMessage("Giriş ücreti başarıyla ödendi! Artık oy kullanabilirsiniz.");
-        hideLoading();
-      } catch (error) {
-        hideLoading();
-        console.error("Ödeme işlemi sırasında hata:", error);
-        showErrorMessage("Ödeme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.");
-      }
-    });
-  }
+  
+  // Cüzdan bağlı ise (ödeme kontrolü kaldırıldı)
+  if (walletSection) walletSection.style.display = 'none';
+  if (voteSection) voteSection.style.display = 'block'; // Oy verme bölümünü göster
+  if (paymentSection) paymentSection.style.display = 'none'; // Ödeme bölümünü gizle
+  if (resultsSection) resultsSection.style.display = 'block';
+  
+  // Blockchain kartlarını oluştur
+  createBlockchainCards();
+  
+  // Sonuçları güncelle
+  updateResults();
 }
 
 // Blockchain kartlarını oluşturan fonksiyon
@@ -931,7 +861,7 @@ async function voteForBlockchain(blockchainId) {
     // userAddress'in string olduğunu kontrol et
     console.log("Oy veren adres (tipi):", typeof userAddress, userAddress);
     
-    // Gerçek oy verme kodu...
+    // Gerçek oy verme kodu... (ödeme kontrolü olmadan)
     await votingContract.methods.vote(blockchainId).send({
       from: userAddress
     });
@@ -943,7 +873,13 @@ async function voteForBlockchain(blockchainId) {
   } catch (error) {
     hideLoading();
     console.error("Oy verme işlemi sırasında hata:", error);
-    showErrorMessage("Oy verme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.");
+    
+    // Kullanıcıya daha detaylı hata mesajı göster
+    if (error.message && error.message.includes("already voted")) {
+      showErrorMessage("Bu blockchain için daha önce oy kullanmışsınız.");
+    } else {
+      showErrorMessage("Oy verme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.");
+    }
   }
 }
 // Sonuçları güncelleyen fonksiyon
