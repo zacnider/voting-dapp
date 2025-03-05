@@ -645,7 +645,8 @@ newButton.addEventListener('click', async () => {
     showErrorMessage("Cüzdan bağlantısı sırasında beklenmeyen bir hata oluştu.");
   }
 });
-
+}	  
+}
 // Doğru ağa bağlı olduğunu kontrol eden fonksiyon
 async function checkNetwork() {
   if (TEST_MODE) return true;
