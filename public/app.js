@@ -275,28 +275,95 @@ let userAddress = ''; // String olarak tanımla
 let blockchains = [];
 let hasUserPaidFee = true;
 
-
+async function initWeb3() {
+  try {
+    console.log("Web3 ortamı başlatılıyor...");
+    
+    // Test modunda web3'ü başlatma
+    if (TEST_MODE) {
+      console.log("TEST MODU: Web3 simülasyonu");
+      
+      // Test için kaydedilmiş adres varsa kullan
+      const testAddress = localStorage.getItem('testWalletAddress');
+      if (testAddress) {
+        userAddress = testAddress;
+        console.log("Test adresi:", userAddress);
+      }
+      
+      initializeApp();
+      return;
+    }
+    
+    // Provider kontrolü
+    let provider;
+    
+    console.log("Provider kontrolü #1");
+    if (window.ethereum) {
+      console.log("Standard window.ethereum provider found:", window.ethereum);
+      provider = window.ethereum;
+    } 
+    else if (window.pocketUniverseProvider) {
+      console.log("PocketUniverse provider found:", window.pocketUniverseProvider);
+      provider = window.pocketUniverseProvider;
+    } 
+    else if (window.web3 && window.web3.currentProvider) {
+      console.log("Legacy web3 provider found:", window.web3.currentProvider);
+      provider = window.web3.currentProvider;
+    } 
+    else {
+      console.log("No web3 provider found, showing connect button");
+      showConnectButton();
+      return;
+    }
+    
+    console.log("Ethereum provider bulundu!", provider);
+    
+    // Web3 nesnesini oluştur
+    web3 = new Web3(provider);
+    console.log("Web3 başarıyla başlatıldı", web3);
+    
+    // Kontrat adresini tanımla
+    const contractAddress = '0x6753f6b230ee795fd518426e5fe0d25df9e16e99'; // Kontrat adresini buraya girin
+    
+    // Kaydedilmiş adres ile uygulamayı başlatma dene
+    console.log("Kaydedilmiş adres ile uygulamayı başlatma deneniyor");
+    if (localStorage.getItem('walletConnected') === 'true') {
+      initializeApp();
+    } else {
+      showConnectButton();
+    }
+  } catch (error) {
+    console.error("Web3 başlatma hatası:", error);
+    showErrorMessage("Web3 başlatılırken bir hata oluştu. Lütfen sayfayı yenileyin ve tekrar deneyin.");
+    showConnectButton();
+  }
+}
 
 // Sayfa yüklendiğinde çalışacak kod
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', () => {
   console.log("DOM yüklendi, uygulama başlatılıyor...");
+  
+  // Test modunu kontrol et
   console.log("Test modu:", TEST_MODE ? "AÇIK" : "KAPALI");
   
-  // localStorage'dan userAddress'i yükle
-  const savedAddress = localStorage.getItem('userAddress');
+  // localStorage'dan kaydedilmiş adres kontrolü
+  const savedAddress = localStorage.getItem('walletConnected');
   if (savedAddress) {
     console.log("Kaydedilmiş adres bulundu:", savedAddress);
-    userAddress = savedAddress;
   }
   
-  // Tarayıcı ve cihaz bilgilerini logla
+  // Tarayıcı bilgilerini logla
   console.log("User Agent:", navigator.userAgent);
   console.log("Platform:", navigator.platform);
   
-  // Hata ayıklama bilgisi
+  // Web3 sağlayıcılarını kontrol et
   console.log("window.ethereum:", window.ethereum);
   console.log("window.pocketUniverseProvider:", window.pocketUniverseProvider);
   console.log("window.web3:", window.web3);
+  
+  // Web3'ü başlat
+  initWeb3();
+});
   
   // Ethereum provider kontrolü için setTimeout kullanarak
   // tarayıcı eklentilerinin yüklenmesi için zaman tanıyoruz
@@ -401,6 +468,9 @@ async function initializeApp() {
     // Disconnect butonunu ayarla
     setupDisconnectButton();
     
+    // Ödeme butonunu ayarla
+    setupEntryFeeButton();
+    
     // Cüzdan bağlantısını kontrol et
     const isConnected = await checkConnection();
     if (!isConnected) {
@@ -410,9 +480,6 @@ async function initializeApp() {
     }
     
     console.log("Cüzdan bağlı, uygulama başlatılıyor...");
-    
-    // Eğer ödeme kontrolünü kaldırmak istiyorsanız, bu satırı kaldırın veya yorum satırı yapın
-    // hasUserPaidFee = await checkUserPaymentStatus();
     
     // Blockchain verilerini yükle
     await loadBlockchainData();
@@ -485,6 +552,21 @@ async function checkConnection() {
   }
 }
 
+function setupDisconnectButton() {
+  const disconnectButton = document.getElementById('disconnect-wallet');
+  if (disconnectButton) {
+    // Önceki event listener'ları temizle
+    const newButton = disconnectButton.cloneNode(true);
+    disconnectButton.parentNode.replaceChild(newButton, disconnectButton);
+    
+    // Yeni event listener ekle
+    newButton.addEventListener('click', async () => {
+      await disconnectWallet();
+    });
+  }
+}
+
+
 // Kullanıcının giriş ücreti ödeyip ödemediğini kontrol eden fonksiyon
 async function checkUserPaymentStatus() {
   try {
@@ -547,64 +629,56 @@ function showConnectButton() {
     // Yeni event listener ekle
     newButton.addEventListener('click', async () => {
       try {
-        console.log("Cüzdan bağlantısı isteniyor...");
+        showLoading("Cüzdan bağlanıyor...");
         
         if (TEST_MODE) {
           console.log("TEST MODU: Cüzdan bağlantısı simüle ediliyor");
-          // Test için sahte bir adres
-          userAddress = "0x1234567890123456789012345678901234567890";
+          // Test modu için rastgele bir adres oluştur
+          const testAddress = '0x' + Math.random().toString(16).substring(2, 42);
+          localStorage.setItem('testWalletAddress', testAddress);
+          userAddress = testAddress;
           
-          try {
-            // Adresin kısaltılmış halini göster
-            const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
-            const walletAddressElement = document.getElementById('wallet-address');
-            if (walletAddressElement) {
-              walletAddressElement.textContent = shortAddress;
-            }
-          } catch (error) {
-            console.error("Adres kısaltma hatası:", error);
-          }
-          
-          // Bağlantı başarılı ise uygulamayı başlat
-          await initializeApp();
+          // Test için UI'ı güncelle
+          hideLoading();
+          initializeApp();
           return;
         }
         
-        // Ethereum provider kontrolü
-        const provider = window.web3Provider;
-        if (!provider) {
-          throw new Error("Provider bulunamadı");
+        // Ethereum sağlayıcısı kontrolü
+        if (!window.ethereum) {
+          hideLoading();
+          showErrorMessage("Ethereum sağlayıcısı bulunamadı. Lütfen MetaMask yükleyin veya başka bir cüzdan kullanın.");
+          return;
         }
         
-        // Cüzdan bağlantısı iste
-        let accounts = await provider.request({ method: 'eth_requestAccounts' });
+        // Hesapları iste
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        console.log("eth_requestAccounts ile alınan hesaplar:", accounts);
         
-        if (accounts && accounts.length > 0) {
-          // String olarak kaydet
-          userAddress = String(accounts);
-          console.log("Bağlandı, hesap (string):", userAddress);
-          
-          try {
-            // Adresin kısaltılmış halini göster
-            const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
-            const walletAddressElement = document.getElementById('wallet-address');
-            if (walletAddressElement) {
-              walletAddressElement.textContent = shortAddress;
-            }
-          } catch (error) {
-            console.error("Adres kısaltma hatası:", error);
-          }
-          
-          // Bağlantı başarılı ise uygulamayı başlat
-          await initializeApp();
-        } else {
-          showErrorMessage("Cüzdan bağlantısı başarısız. Hesap bulunamadı.");
+        if (accounts.length === 0) {
+          hideLoading();
+          showErrorMessage("Hesap seçilmedi veya erişim reddedildi.");
+          return;
         }
+        
+        // İlk hesabı kullan
+        userAddress = accounts;
+        console.log("Bağlandı, hesap:", userAddress);
+        
+        // localStorage'a kaydet
+        localStorage.setItem('walletConnected', 'true');
+        
+        hideLoading();
+        
+        // Uygulamayı başlat
+        initializeApp();
       } catch (error) {
-        console.error("Cüzdan erişim isteği hatası:", error);
+        hideLoading();
+        console.error("Cüzdan bağlantısı sırasında hata:", error);
         
+        // Daha detaylı hata mesajları
         if (error.code === 4001) {
-          showErrorMessage("Cüzdan bağlantısı kullanıcı tarafından reddedildi.");
+          showErrorMessage("Cüzdan bağlantı isteği reddedildi.");
         } else {
           showErrorMessage("Cüzdan bağlantısı sırasında bir hata oluştu: " + error.message);
         }
@@ -636,7 +710,7 @@ async function checkNetwork() {
     return false;
   }
 }
-
+//cüzdan bağlantısını kesen fonksiyon
 async function disconnectWallet() {
   try {
     console.log("Cüzdan bağlantısı kesiliyor...");
@@ -844,32 +918,43 @@ function setupEntryFeeButton() {
 }
 // Blockchain kartlarını oluşturan fonksiyon
 function createBlockchainCards() {
-  const container = document.getElementById('blockchains-container');
-  if (!container) return;
+  const blockchainCardsContainer = document.getElementById('blockchain-cards');
+  if (!blockchainCardsContainer) return;
   
-  // Önceki içeriği temizle
-  container.innerHTML = '';
+  // Önceki kartları temizle
+  blockchainCardsContainer.innerHTML = '';
   
-  // Her blockchain için kart oluştur
+  // Test modunda ve blockchain'ler tanımlanmamışsa
+  if (TEST_MODE && (!blockchains || blockchains.length === 0)) {
+    blockchains = [
+      { id: 0, name: "Ethereum", symbol: "ETH", voteCount: 0 },
+      { id: 1, name: "Binance Smart Chain", symbol: "BSC", voteCount: 0 },
+      { id: 2, name: "Polygon", symbol: "MATIC", voteCount: 0 },
+      { id: 3, name: "Solana", symbol: "SOL", voteCount: 0 },
+      { id: 4, name: "Avalanche", symbol: "AVAX", voteCount: 0 }
+    ];
+  }
+  
+  // Blockchain'ler için kartları oluştur
   blockchains.forEach(blockchain => {
     const card = document.createElement('div');
-    card.className = `blockchain-card ${blockchain.name === 'Monad' ? 'monad' : ''}`;
-    
+    card.className = 'blockchain-card';
     card.innerHTML = `
       <h3>${blockchain.name}</h3>
-      <span class="blockchain-symbol">${blockchain.symbol}</span>
-      <p class="vote-count">${blockchain.voteCount} oy</p>
-      <button class="vote-btn" data-id="${blockchain.id}">Oy Ver</button>
+      <p>Symbol: ${blockchain.symbol}</p>
+      <p>Vote Count: ${blockchain.voteCount}</p>
+      <button class="vote-button" data-id="${blockchain.id}">Vote</button>
     `;
     
-    container.appendChild(card);
+    blockchainCardsContainer.appendChild(card);
     
-    // Oy verme butonuna event listener ekle
-    const voteButton = card.querySelector('.vote-btn');
-    voteButton.addEventListener('click', () => voteForBlockchain(blockchain.id));
+    // Oy verme butonu için event listener ekle
+    const voteButton = card.querySelector('.vote-button');
+    voteButton.addEventListener('click', () => {
+      voteForBlockchain(blockchain.id);
+    });
   });
 }
-
 // Blockchain'e oy verme fonksiyonu
 async function voteForBlockchain(blockchainId) {
   try {
@@ -928,32 +1013,31 @@ function updateResults() {
   const resultsContainer = document.getElementById('results-container');
   if (!resultsContainer) return;
   
-  // Önceki içeriği temizle
+  // Önceki sonuçları temizle
   resultsContainer.innerHTML = '';
   
-  // Oy sayısına göre sırala
+  // Test modunda ve blockchain'ler tanımlanmamışsa
+  if (TEST_MODE && (!blockchains || blockchains.length === 0)) {
+    blockchains = [
+      { id: 0, name: "Ethereum", symbol: "ETH", voteCount: 0 },
+      { id: 1, name: "Binance Smart Chain", symbol: "BSC", voteCount: 0 },
+      { id: 2, name: "Polygon", symbol: "MATIC", voteCount: 0 },
+      { id: 3, name: "Solana", symbol: "SOL", voteCount: 0 },
+      { id: 4, name: "Avalanche", symbol: "AVAX", voteCount: 0 }
+    ];
+  }
+  
+  // Blockchain'leri oy sayısına göre sırala
   const sortedBlockchains = [...blockchains].sort((a, b) => b.voteCount - a.voteCount);
   
-  // Toplam oy sayısını hesapla
-  const totalVotes = sortedBlockchains.reduce((sum, blockchain) => sum + parseInt(blockchain.voteCount), 0);
-  
-  // Her blockchain için sonuç öğesi oluştur
+  // Sonuçları göster
   sortedBlockchains.forEach((blockchain, index) => {
-    const percentage = totalVotes > 0 ? (blockchain.voteCount / totalVotes * 100).toFixed(1) : 0;
-    
     const resultItem = document.createElement('div');
-    resultItem.className = `result-item ${blockchain.name === 'Monad' ? 'monad' : ''}`;
-    
+    resultItem.className = 'result-item';
     resultItem.innerHTML = `
       <span class="rank">#${index + 1}</span>
-      <div class="blockchain-name">
-        <strong>${blockchain.name}</strong>
-        <span class="blockchain-symbol">${blockchain.symbol}</span>
-      </div>
-      <div class="votes">
-        <div>${blockchain.voteCount} oy (${percentage}%)</div>
-        <div class="vote-bar" style="width: ${percentage}%"></div>
-      </div>
+      <span class="name">${blockchain.name} (${blockchain.symbol})</span>
+      <span class="votes">${blockchain.voteCount} votes</span>
     `;
     
     resultsContainer.appendChild(resultItem);
@@ -962,20 +1046,22 @@ function updateResults() {
 
 // Yükleme göstergesini görüntüleyen fonksiyon
 function showLoading(message = "İşlem yapılıyor...") {
-  const loadingOverlay = document.getElementById('loading-overlay');
-  const loadingMessage = document.getElementById('loading-message');
+  const loadingElement = document.getElementById('loading');
+  const loadingMessageElement = document.getElementById('loading-message');
   
-  if (loadingOverlay && loadingMessage) {
-    loadingMessage.textContent = message;
-    loadingOverlay.style.display = 'flex';
+  if (loadingElement) {
+    loadingElement.style.display = 'flex';
+  }
+  
+  if (loadingMessageElement) {
+    loadingMessageElement.textContent = message;
   }
 }
 
-// Yükleme göstergesini gizleyen fonksiyon
 function hideLoading() {
-  const loadingOverlay = document.getElementById('loading-overlay');
-  if (loadingOverlay) {
-    loadingOverlay.style.display = 'none';
+  const loadingElement = document.getElementById('loading');
+  if (loadingElement) {
+    loadingElement.style.display = 'none';
   }
 }
 
@@ -1008,25 +1094,32 @@ function showErrorMessage(message) {
 
 // Başarı mesajı gösteren fonksiyon
 function showSuccessMessage(message) {
-  // Önceki mesajları temizle
-  clearMessages();
-  
-  const main = document.querySelector('main');
-  if (main) {
-    const successElement = document.createElement('div');
-    successElement.className = 'success-message';
-    successElement.textContent = message;
+  const messageElement = document.getElementById('message');
+  if (messageElement) {
+    messageElement.textContent = message;
+    messageElement.className = 'success-message';
+    messageElement.style.display = 'block';
     
-    // Main'in başına ekle
-    main.insertBefore(successElement, main.firstChild);
-    
-    // 5 saniye sonra mesajı kaldır
+    // 3 saniye sonra mesajı gizle
     setTimeout(() => {
-      successElement.remove();
-    }, 5000);
+      messageElement.style.display = 'none';
+    }, 3000);
   }
 }
 
+function showErrorMessage(message) {
+  const messageElement = document.getElementById('message');
+  if (messageElement) {
+    messageElement.textContent = message;
+    messageElement.className = 'error-message';
+    messageElement.style.display = 'block';
+    
+    // 5 saniye sonra mesajı gizle
+    setTimeout(() => {
+      messageElement.style.display = 'none';
+    }, 5000);
+  }
+}
 // Cüzdan uyarısı gösteren fonksiyon
 function showWalletWarning() {
   const main = document.querySelector('main');
