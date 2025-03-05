@@ -398,40 +398,29 @@ async function initializeApp() {
   try {
     console.log("Uygulama başlatılıyor...");
     
-    // Cüzdan bağlantısını kontrol et
-    const connected = await checkConnection();
+    // Disconnect butonunu ayarla
+    setupDisconnectButton();
     
-    if (connected) {
-      console.log("Cüzdan bağlı, uygulama başlatılıyor...");
-      
-      if (!TEST_MODE) {
-        // Ağ kontrolü yap
-        const correctNetwork = await checkNetwork();
-        if (!correctNetwork) {
-          return; // Doğru ağda değilse işlemi durdur
-        }
-        
-        // Kontrat instance'ı oluştur
-        votingContract = new web3.eth.Contract(contractABI, contractAddress);
-        console.log("Kontrat oluşturuldu:", votingContract);
-      }
-      
-      // Kullanıcının giriş ücreti ödeyip ödemediğini kontrol et
-      await checkUserPaymentStatus();
-      
-      // Blockchain verilerini yükle
-      await loadBlockchainData();
-      
-      // UI'ı güncelle
-      updateUI();
-    } else {
+    // Cüzdan bağlantısını kontrol et
+    const isConnected = await checkConnection();
+    if (!isConnected) {
       console.log("Cüzdan bağlı değil, kullanıcıdan bağlanmasını isteyin.");
-      // Bağlantı butonu göster
       showConnectButton();
+      return;
     }
+    
+    // Kullanıcının ödeme yapmış olup olmadığını kontrol et
+    hasUserPaidFee = await checkUserPaymentStatus();
+    console.log("Kullanıcı ücret ödemiş mi:", hasUserPaidFee);
+    
+    // Blockchain verilerini yükle
+    await loadBlockchainData();
+    
+    // UI güncelle
+    updateUI();
   } catch (error) {
-    console.error("Uygulama başlatılırken hata:", error);
-    showErrorMessage("Uygulama başlatılırken bir hata oluştu. Lütfen sayfayı yenileyip tekrar deneyin.");
+    console.error("Uygulama başlatma hatası:", error);
+    showErrorMessage("Uygulama başlatılırken bir hata oluştu. Lütfen sayfayı yenileyin ve tekrar deneyin.");
   }
 }
 
@@ -483,6 +472,15 @@ async function checkConnection() {
         if (walletAddressElement) {
           walletAddressElement.textContent = shortAddress;
         }
+        
+        // Disconnect butonunu göster
+        const disconnectButton = document.getElementById('disconnect-wallet');
+        if (disconnectButton) {
+          disconnectButton.style.display = 'inline-block';
+        }
+        
+        // Bağlantı durumunu localStorage'a kaydet
+        localStorage.setItem('walletConnected', 'true');
       } catch (error) {
         console.error("Adres kısaltma hatası:", error);
         console.log("Adres tipi:", typeof userAddress, userAddress);
@@ -491,6 +489,13 @@ async function checkConnection() {
       return true;
     } else {
       console.log("Cüzdan bağlı değil!");
+      
+      // Disconnect butonunu gizle
+      const disconnectButton = document.getElementById('disconnect-wallet');
+      if (disconnectButton) {
+        disconnectButton.style.display = 'none';
+      }
+      
       return false;
     }
   } catch (error) {
@@ -550,6 +555,15 @@ function showConnectButton() {
             if (walletAddressElement) {
               walletAddressElement.textContent = shortAddress;
             }
+            
+            // Disconnect butonunu göster
+            const disconnectButton = document.getElementById('disconnect-wallet');
+            if (disconnectButton) {
+              disconnectButton.style.display = 'inline-block';
+            }
+            
+            // Connect butonunu gizle
+            newButton.style.display = 'none';
           } catch (error) {
             console.error("Adres kısaltma hatası:", error);
           }
@@ -580,6 +594,18 @@ function showConnectButton() {
             if (walletAddressElement) {
               walletAddressElement.textContent = shortAddress;
             }
+            
+            // Disconnect butonunu göster
+            const disconnectButton = document.getElementById('disconnect-wallet');
+            if (disconnectButton) {
+              disconnectButton.style.display = 'inline-block';
+            }
+            
+            // Connect butonunu gizle
+            newButton.style.display = 'none';
+            
+            // Bağlantı durumunu localStorage'a kaydet
+            localStorage.setItem('walletConnected', 'true');
           } catch (error) {
             console.error("Adres kısaltma hatası:", error);
           }
@@ -601,7 +627,71 @@ function showConnectButton() {
     });
   }
 }
- 
+
+// Cüzdan bağlantısını kesmek için fonksiyon
+async function disconnectWallet() {
+  try {
+    console.log("Cüzdan bağlantısı kesiliyor...");
+    
+    // userAddress'i sıfırla
+    userAddress = '';
+    
+    // Kullanıcı durumunu sıfırla
+    hasUserPaidFee = false;
+    
+    // localStorage'dan bağlantı bilgilerini temizle
+    localStorage.removeItem('walletConnected');
+    
+    // UI'ı güncelle
+    updateUI();
+    
+    // Bağlantı kesme başarılı mesajını göster
+    showSuccessMessage("Cüzdan bağlantısı başarıyla kesildi.");
+    
+    // Bağlantı butonunu göster
+    showConnectButton();
+    
+    // Disconnect butonunu gizle
+    document.getElementById('disconnect-wallet').style.display = 'none';
+    
+    // Cüzdan adresini temizle
+    const walletAddressElement = document.getElementById('wallet-address');
+    if (walletAddressElement) {
+      walletAddressElement.textContent = '';
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Cüzdan bağlantısını kesme hatası:", error);
+    showErrorMessage("Cüzdan bağlantısını keserken bir hata oluştu.");
+    return false;
+  }
+}
+
+// Disconnect butonunu ayarlama fonksiyonu
+function setupDisconnectButton() {
+  const disconnectButton = document.getElementById('disconnect-wallet');
+  if (disconnectButton) {
+    // Önceki event listener'ları temizle
+    const newButton = disconnectButton.cloneNode(true);
+    disconnectButton.parentNode.replaceChild(newButton, disconnectButton);
+    
+    // Yeni event listener ekle
+    newButton.addEventListener('click', async () => {
+      await disconnectWallet();
+    });
+    
+    // Eğer cüzdan bağlıysa butonu göster
+    if (userAddress) {
+      newButton.style.display = 'inline-block';
+    } else {
+      newButton.style.display = 'none';
+    }
+  }
+}
+
+
+
 // Doğru ağa bağlı olduğunu kontrol eden fonksiyon
 async function checkNetwork() {
   if (TEST_MODE) return true;
