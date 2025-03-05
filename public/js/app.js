@@ -826,4 +826,9 @@ function showSuccessMessage(message) {
   
   const main = document.querySelector('main');
   if (main) {
-    const successElement
+    const successElement = document.createElement('div');
+    successElement.className = 'success-message';
+    successElement.textContent = message;
+    
+    // Main'in başına ekle
+    main
