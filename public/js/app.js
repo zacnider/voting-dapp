@@ -41,6 +41,38 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+function checkConnection() {
+  try {
+    // Ethereum provider kontrolü
+    if (typeof window.ethereum === 'undefined') {
+      console.log("MetaMask yüklü değil!");
+      // UI'da bir uyarı göster
+      return false;
+    }
+
+    // Cüzdan bağlantısı kontrolü
+    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+    const currentAccount = accounts;
+    
+    // currentAccount kontrolü
+    if (currentAccount && typeof currentAccount === 'string') {
+      console.log("Bağlandı:", currentAccount);
+      // Adresin kısaltılmış halini göster
+      const shortAddress = currentAccount.substring(0, 6) + "..." + currentAccount.substring(currentAccount.length - 4);
+      document.getElementById('wallet-address').textContent = shortAddress;
+      return true;
+    } else {
+      console.log("Cüzdan bağlı değil!");
+      return false;
+    }
+  } catch (error) {
+    console.error("Bağlantı kontrolü sırasında hata:", error);
+    return false;
+  }
+}
+
+
+
 // Cüzdan bağlantısını kontrol et
 async function checkConnection() {
     try {
