@@ -510,8 +510,10 @@ async function checkUserPaymentStatus() {
     console.log("Kullanıcı ödeme durumu kontrol ediliyor...");
     
     if (TEST_MODE) {
-      // Test modunda ödeme durumunu false olarak döndür
-      return false;
+      // Test modunda ödeme durumunu localStorage'dan kontrol et
+      const testPaid = localStorage.getItem('testPaidFee');
+      console.log("Test modu ödeme durumu:", testPaid);
+      return testPaid === 'true';
     }
     
     if (!userAddress) {
@@ -520,11 +522,21 @@ async function checkUserPaymentStatus() {
     }
     
     // Kontrat üzerinden kullanıcının ödeme yapıp yapmadığını kontrol et
+    console.log("Ödeme kontrolü için kullanılan adres:", userAddress);
     const hasPaid = await votingContract.methods.hasPaid(userAddress).call();
+    console.log("Kontrat üzerinden ödeme durumu:", hasPaid);
+    
+    // Ödeme durumunu localStorage'a kaydet
+    localStorage.setItem(`paidFee_${userAddress.toLowerCase()}`, hasPaid);
+    
     return hasPaid;
   } catch (error) {
     console.error("Kontrat çağrısı hatası:", error);
-    return false;
+    
+    // Hata durumunda localStorage'dan kontrol et
+    const localPaid = localStorage.getItem(`paidFee_${userAddress.toLowerCase()}`);
+    console.log("localStorage'dan ödeme durumu:", localPaid);
+    return localPaid === 'true';
   }
 }
 
