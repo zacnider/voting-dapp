@@ -339,7 +339,7 @@ async function initWeb3() {
   }
 }
 
-// Sayfa yüklendiğinde çalışacak kod
+// DOM yüklendiğinde uygulamayı başlat
 document.addEventListener('DOMContentLoaded', () => {
   console.log("DOM yüklendi, uygulama başlatılıyor...");
   
@@ -361,10 +361,13 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log("window.pocketUniverseProvider:", window.pocketUniverseProvider);
   console.log("window.web3:", window.web3);
   
-  // Web3'ü başlat
-  initWeb3();
+  // Ethereum provider kontrolü için setTimeout kullanarak
+  // tarayıcı eklentilerinin yüklenmesi için zaman tanıyoruz
+  setTimeout(() => {
+    // Web3'ü başlat
+    initWeb3();
+  }, 1000);
 });
-  
   // Ethereum provider kontrolü için setTimeout kullanarak
   // tarayıcı eklentilerinin yüklenmesi için zaman tanıyoruz
   setTimeout(initializeWeb3Environment, 1000);
