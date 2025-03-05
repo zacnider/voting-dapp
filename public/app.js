@@ -273,7 +273,7 @@ let web3;
 let votingContract;
 let userAddress = ''; // String olarak tanımla
 let blockchains = [];
-
+let hasUserPaidFee = false;
 
 
 
@@ -398,27 +398,40 @@ async function initializeApp() {
   try {
     console.log("Uygulama başlatılıyor...");
     
-    // Disconnect butonunu ayarla
-    setupDisconnectButton();
-    
     // Cüzdan bağlantısını kontrol et
-    const isConnected = await checkConnection();
-    if (!isConnected) {
+    const connected = await checkConnection();
+    
+    if (connected) {
+      console.log("Cüzdan bağlı, uygulama başlatılıyor...");
+      
+      if (!TEST_MODE) {
+        // Ağ kontrolü yap
+        const correctNetwork = await checkNetwork();
+        if (!correctNetwork) {
+          return; // Doğru ağda değilse işlemi durdur
+        }
+        
+        // Kontrat instance'ı oluştur
+        votingContract = new web3.eth.Contract(contractABI, contractAddress);
+        console.log("Kontrat oluşturuldu:", votingContract);
+      }
+      
+      // Kullanıcının giriş ücreti ödeyip ödemediğini kontrol et
+      await checkUserPaymentStatus();
+      
+      // Blockchain verilerini yükle
+      await loadBlockchainData();
+      
+      // UI'ı güncelle
+      updateUI();
+    } else {
       console.log("Cüzdan bağlı değil, kullanıcıdan bağlanmasını isteyin.");
+      // Bağlantı butonu göster
       showConnectButton();
-      return;
     }
-    
-    // Ödeme kontrolünü kaldırdık
-    
-    // Blockchain verilerini yükle
-    await loadBlockchainData();
-    
-    // UI güncelle
-    updateUI();
   } catch (error) {
-    console.error("Uygulama başlatma hatası:", error);
-    showErrorMessage("Uygulama başlatılırken bir hata oluştu. Lütfen sayfayı yenileyin ve tekrar deneyin.");
+    console.error("Uygulama başlatılırken hata:", error);
+    showErrorMessage("Uygulama başlatılırken bir hata oluştu. Lütfen sayfayı yenileyip tekrar deneyin.");
   }
 }
 
@@ -470,15 +483,6 @@ async function checkConnection() {
         if (walletAddressElement) {
           walletAddressElement.textContent = shortAddress;
         }
-        
-        // Disconnect butonunu göster
-        const disconnectButton = document.getElementById('disconnect-wallet');
-        if (disconnectButton) {
-          disconnectButton.style.display = 'inline-block';
-        }
-        
-        // Bağlantı durumunu localStorage'a kaydet
-        localStorage.setItem('walletConnected', 'true');
       } catch (error) {
         console.error("Adres kısaltma hatası:", error);
         console.log("Adres tipi:", typeof userAddress, userAddress);
@@ -487,13 +491,6 @@ async function checkConnection() {
       return true;
     } else {
       console.log("Cüzdan bağlı değil!");
-      
-      // Disconnect butonunu gizle
-      const disconnectButton = document.getElementById('disconnect-wallet');
-      if (disconnectButton) {
-        disconnectButton.style.display = 'none';
-      }
-      
       return false;
     }
   } catch (error) {
@@ -508,10 +505,8 @@ async function checkUserPaymentStatus() {
     console.log("Kullanıcı ödeme durumu kontrol ediliyor...");
     
     if (TEST_MODE) {
-      // Test modunda ödeme durumunu localStorage'dan kontrol et
-      const testPaid = localStorage.getItem('testPaidFee');
-      console.log("Test modu ödeme durumu:", testPaid);
-      return testPaid === 'true';
+      // Test modunda ödeme durumunu false olarak döndür
+      return false;
     }
     
     if (!userAddress) {
@@ -520,21 +515,11 @@ async function checkUserPaymentStatus() {
     }
     
     // Kontrat üzerinden kullanıcının ödeme yapıp yapmadığını kontrol et
-    console.log("Ödeme kontrolü için kullanılan adres:", userAddress);
     const hasPaid = await votingContract.methods.hasPaid(userAddress).call();
-    console.log("Kontrat üzerinden ödeme durumu:", hasPaid);
-    
-    // Ödeme durumunu localStorage'a kaydet
-    localStorage.setItem(`paidFee_${userAddress.toLowerCase()}`, hasPaid);
-    
     return hasPaid;
   } catch (error) {
     console.error("Kontrat çağrısı hatası:", error);
-    
-    // Hata durumunda localStorage'dan kontrol et
-    const localPaid = localStorage.getItem(`paidFee_${userAddress.toLowerCase()}`);
-    console.log("localStorage'dan ödeme durumu:", localPaid);
-    return localPaid === 'true';
+    return false;
   }
 }
 
@@ -565,15 +550,6 @@ function showConnectButton() {
             if (walletAddressElement) {
               walletAddressElement.textContent = shortAddress;
             }
-            
-            // Disconnect butonunu göster
-            const disconnectButton = document.getElementById('disconnect-wallet');
-            if (disconnectButton) {
-              disconnectButton.style.display = 'inline-block';
-            }
-            
-            // Connect butonunu gizle
-            newButton.style.display = 'none';
           } catch (error) {
             console.error("Adres kısaltma hatası:", error);
           }
@@ -604,18 +580,6 @@ function showConnectButton() {
             if (walletAddressElement) {
               walletAddressElement.textContent = shortAddress;
             }
-            
-            // Disconnect butonunu göster
-            const disconnectButton = document.getElementById('disconnect-wallet');
-            if (disconnectButton) {
-              disconnectButton.style.display = 'inline-block';
-            }
-            
-            // Connect butonunu gizle
-            newButton.style.display = 'none';
-            
-            // Bağlantı durumunu localStorage'a kaydet
-            localStorage.setItem('walletConnected', 'true');
           } catch (error) {
             console.error("Adres kısaltma hatası:", error);
           }
@@ -637,71 +601,7 @@ function showConnectButton() {
     });
   }
 }
-
-// Cüzdan bağlantısını kesmek için fonksiyon
-async function disconnectWallet() {
-  try {
-    console.log("Cüzdan bağlantısı kesiliyor...");
-    
-    // userAddress'i sıfırla
-    userAddress = '';
-    
-    // Kullanıcı durumunu sıfırla
-    hasUserPaidFee = false;
-    
-    // localStorage'dan bağlantı bilgilerini temizle
-    localStorage.removeItem('walletConnected');
-    
-    // UI'ı güncelle
-    updateUI();
-    
-    // Bağlantı kesme başarılı mesajını göster
-    showSuccessMessage("Cüzdan bağlantısı başarıyla kesildi.");
-    
-    // Bağlantı butonunu göster
-    showConnectButton();
-    
-    // Disconnect butonunu gizle
-    document.getElementById('disconnect-wallet').style.display = 'none';
-    
-    // Cüzdan adresini temizle
-    const walletAddressElement = document.getElementById('wallet-address');
-    if (walletAddressElement) {
-      walletAddressElement.textContent = '';
-    }
-    
-    return true;
-  } catch (error) {
-    console.error("Cüzdan bağlantısını kesme hatası:", error);
-    showErrorMessage("Cüzdan bağlantısını keserken bir hata oluştu.");
-    return false;
-  }
-}
-
-// Disconnect butonunu ayarlama fonksiyonu
-function setupDisconnectButton() {
-  const disconnectButton = document.getElementById('disconnect-wallet');
-  if (disconnectButton) {
-    // Önceki event listener'ları temizle
-    const newButton = disconnectButton.cloneNode(true);
-    disconnectButton.parentNode.replaceChild(newButton, disconnectButton);
-    
-    // Yeni event listener ekle
-    newButton.addEventListener('click', async () => {
-      await disconnectWallet();
-    });
-    
-    // Eğer cüzdan bağlıysa butonu göster
-    if (userAddress) {
-      newButton.style.display = 'inline-block';
-    } else {
-      newButton.style.display = 'none';
-    }
-  }
-}
-
-
-
+ 
 // Doğru ağa bağlı olduğunu kontrol eden fonksiyon
 async function checkNetwork() {
   if (TEST_MODE) return true;
@@ -776,33 +676,101 @@ async function loadBlockchainData() {
 
 // Kullanıcı arayüzünü güncelleyen fonksiyon
 function updateUI() {
-  console.log("UI güncelleniyor...");
-  
-  const walletSection = document.getElementById('wallet-section');
-  const voteSection = document.getElementById('vote-section');
-  const paymentSection = document.getElementById('payment-section'); // Bu bölümü gizleyeceğiz
-  const resultsSection = document.getElementById('results-section');
-  
-  // Cüzdan bağlı değilse
-  if (!userAddress) {
-    if (walletSection) walletSection.style.display = 'block';
-    if (voteSection) voteSection.style.display = 'none';
-    if (paymentSection) paymentSection.style.display = 'none'; // Ödeme bölümünü gizle
-    if (resultsSection) resultsSection.style.display = 'none';
-    return;
+  try {
+    console.log("UI güncelleniyor...");
+    
+    // Cüzdan bağlantı durumu
+    const walletSection = document.getElementById('wallet-section');
+    if (walletSection && userAddress) {
+      walletSection.classList.add('connected');
+      
+      // Bağlantı butonunu gizle
+      const connectButton = document.getElementById('connect-wallet');
+      if (connectButton) {
+        connectButton.style.display = 'none';
+      }
+    }
+    
+    // Giriş ücreti ve oylama bölümlerini göster/gizle
+    const entrySection = document.getElementById('entry-section');
+    const votingSection = document.getElementById('voting-section');
+    
+    if (entrySection && votingSection) {
+      if (hasUserPaidFee) {
+        // Kullanıcı ücret ödemiş, oylama bölümünü göster
+        entrySection.style.display = 'none';
+        votingSection.style.display = 'block';
+        
+        // Blockchain kartlarını oluştur
+        createBlockchainCards();
+      } else if (userAddress) {
+        // Kullanıcı bağlı ama ücret ödememiş, giriş ücreti bölümünü göster
+        entrySection.style.display = 'block';
+        votingSection.style.display = 'none';
+        
+        // Giriş ücreti butonuna event listener ekle
+        setupEntryFeeButton();
+      } else {
+        // Kullanıcı bağlı değil, her iki bölümü de gizle
+        entrySection.style.display = 'none';
+        votingSection.style.display = 'none';
+      }
+    }
+  } catch (error) {
+    console.error("UI güncellenirken hata:", error);
   }
-  
-  // Cüzdan bağlı ise (ödeme kontrolü kaldırıldı)
-  if (walletSection) walletSection.style.display = 'none';
-  if (voteSection) voteSection.style.display = 'block'; // Oy verme bölümünü göster
-  if (paymentSection) paymentSection.style.display = 'none'; // Ödeme bölümünü gizle
-  if (resultsSection) resultsSection.style.display = 'block';
-  
-  // Blockchain kartlarını oluştur
-  createBlockchainCards();
-  
-  // Sonuçları güncelle
-  updateResults();
+}
+
+// Giriş ücreti butonuna event listener ekleyen fonksiyon
+function setupEntryFeeButton() {
+  const entryFeeButton = document.getElementById('pay-entry-fee');
+  if (entryFeeButton) {
+    // Önceki event listener'ları temizle
+    const newButton = entryFeeButton.cloneNode(true);
+    entryFeeButton.parentNode.replaceChild(newButton, entryFeeButton);
+    
+    // Yeni event listener ekle
+    newButton.addEventListener('click', async () => {
+      try {
+        showLoading("Ödeme işlemi yapılıyor...");
+        
+        if (TEST_MODE) {
+          console.log("TEST MODU: Ödeme işlemi simüle ediliyor");
+          // Simüle edilmiş ödeme
+          setTimeout(() => {
+            hasUserPaidFee = true;
+            updateUI();
+            showSuccessMessage("Test modu: Giriş ücreti başarıyla ödendi! Artık oy kullanabilirsiniz.");
+            hideLoading();
+          }, 1500);
+          return;
+        }
+        
+        // Gerçek ödeme kodu...
+        const entryFee = await votingContract.methods.ENTRY_FEE().call();
+        console.log("Giriş ücreti:", entryFee);
+        
+        // userAddress'in string olduğunu kontrol et
+        console.log("Ödeme yapan adres (tipi):", typeof userAddress, userAddress);
+        
+        // Kontrat metodu çağrısı
+        await votingContract.methods.payEntryFee().send({
+          from: userAddress,
+          value: entryFee
+        });
+        
+        hasUserPaidFee = true;
+        updateUI();
+        
+        showSuccessMessage("Giriş ücreti başarıyla ödendi! Artık oy kullanabilirsiniz.");
+        hideLoading();
+      } catch (error) {
+        hideLoading();
+        console.error("Ödeme işlemi sırasında hata:", error);
+        showErrorMessage("Ödeme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.");
+      }
+    });
+  }
 }
 
 // Blockchain kartlarını oluşturan fonksiyon
@@ -861,7 +829,7 @@ async function voteForBlockchain(blockchainId) {
     // userAddress'in string olduğunu kontrol et
     console.log("Oy veren adres (tipi):", typeof userAddress, userAddress);
     
-    // Gerçek oy verme kodu... (ödeme kontrolü olmadan)
+    // Gerçek oy verme kodu...
     await votingContract.methods.vote(blockchainId).send({
       from: userAddress
     });
@@ -873,13 +841,7 @@ async function voteForBlockchain(blockchainId) {
   } catch (error) {
     hideLoading();
     console.error("Oy verme işlemi sırasında hata:", error);
-    
-    // Kullanıcıya daha detaylı hata mesajı göster
-    if (error.message && error.message.includes("already voted")) {
-      showErrorMessage("Bu blockchain için daha önce oy kullanmışsınız.");
-    } else {
-      showErrorMessage("Oy verme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.");
-    }
+    showErrorMessage("Oy verme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.");
   }
 }
 // Sonuçları güncelleyen fonksiyon
