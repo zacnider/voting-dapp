@@ -1,7 +1,7 @@
 // app.js - Blockchain Oylama Uygulaması
 
 // Test modu - gerçek kontrat bağlantısı olmadan test etmek için
-const TEST_MODE = true; // Gerçek kontrat entegrasyonu için false yapın
+const TEST_MODE = false; // Gerçek kontrat entegrasyonu için false yapın
 
 // Ethereum provider için güvenli erişim sağlayan yardımcı fonksiyon
 let ethereumProviderChecks = 0;
