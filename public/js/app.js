@@ -251,7 +251,7 @@ const contractABI = [
 ];
 
 // Kontrat adresi (deploy edildikten sonra güncellenecek)
-const contractAddress = "0x123..."; // Gerçek kontrat adresini buraya ekleyin
+const contractAddress = "0x6753f6B230ee795FD518426e5FE0D25Df9E16E99"; // Gerçek kontrat adresini buraya ekleyin
 
 // Global değişkenler
 let web3;
@@ -304,7 +304,7 @@ function initializeWeb3Environment() {
           
           // Fallback olarak HTTP provider dene
           try {
-            web3 = new Web3('https://rpc1.monad.xyz'); // Monad RPC URL
+            web3 = new Web3('https://testnet-rpc.monad.xyz'); // Monad RPC URL
             console.log("Web3 HTTP provider ile başlatıldı");
           } catch (fallbackError) {
             console.error("Fallback Web3 başlatma hatası:", fallbackError);
