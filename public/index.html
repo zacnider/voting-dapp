@@ -3,130 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blockchain Voting DApp</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
+    <title>Blockchain Popularity Vote</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <nav class="navbar navbar-dark bg-dark mb-4">
-        <div class="container">
-            <span class="navbar-brand mb-0 h1">Blockchain Voting DApp</span>
-            <div class="d-flex align-items-center">
-                <span class="text-light me-3" id="networkName"></span>
-                <span class="text-light me-2" id="accountAddress">Not connected</span>
-                <button class="btn btn-outline-light btn-sm" id="connectBtn">Connect Wallet</button>
+    <header>
+        <h1>Blockchain Popularity Vote</h1>
+        <div id="wallet-section">
+            <div id="wallet-info">
+                <span id="wallet-address">Not connected</span>
             </div>
+            <button id="connect-wallet">Connect Wallet</button>
         </div>
-    </nav>
-<div id="metamask-warning" style="display:none; color:red; padding: 20px;">
-  <p>Bu uygulama için MetaMask gereklidir. Lütfen <a href="https://metamask.io/" target="_blank">MetaMask'i yükleyin</a> ve sayfayı yenileyin.</p>
-</div>
-    <div class="container">
-        <div id="errorAlert" class="alert alert-danger d-none" role="alert">
-            Error connecting to the blockchain!
-        </div>
+    </header>
+    
+    <main>
+        <section id="entry-section" style="display: none;">
+            <div class="card">
+                <h2>Welcome to Blockchain Voting</h2>
+                <p>To participate in voting, you need to pay a one-time entry fee of <strong>0.2 MON</strong>.</p>
+                <p>After payment, you can vote for your favorite blockchain platforms as many times as you want.</p>
+                <button id="pay-entry-fee" class="primary-btn">Pay Entry Fee (0.2 MON)</button>
+            </div>
+        </section>
         
-        <div id="loadingSpinner" class="text-center my-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
+        <section id="voting-section" style="display: none;">
+            <h2>Vote for Your Favorite Blockchain</h2>
+            <p class="info-text">You can vote once per transaction, but you can make unlimited transactions.</p>
+            
+            <div class="blockchain-grid" id="blockchains-container">
+                <!-- Blockchains will be loaded here -->
             </div>
-            <p class="mt-2">Loading blockchain data...</p>
-        </div>
-
-        <!-- Admin Panel -->
-        <div id="adminPanel" class="card mb-4 d-none">
-            <div class="card-header bg-primary text-white">
-                Admin Panel
+        </section>
+        
+        <section id="results-section">
+            <h2>Current Rankings</h2>
+            <div id="results-container">
+                <!-- Results will be loaded here -->
+                <p class="loading-text">Loading results...</p>
             </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h5>Add Candidate</h5>
-                        <form id="addCandidateForm">
-                            <div class="mb-3">
-                                <label for="candidateName" class="form-label">Name</label>
-                                <input type="text" class="form-control" id="candidateName" required>
-                            </div>
-                            <div class="mb-3">
-                                <label for="candidateInfo" class="form-label">Information</label>
-                                <textarea class="form-control" id="candidateInfo" rows="3" required></textarea>
-                            </div>
-                            <button type="submit" class="btn btn-primary">Add Candidate</button>
-                        </form>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <h5>Voting Management</h5>
-                        <div class="mb-3">
-                            <label for="votingDuration" class="form-label">Duration (minutes)</label>
-                            <input type="number" class="form-control" id="votingDuration" value="30" min="1">
-                        </div>
-                        <button id="startVotingBtn" class="btn btn-success me-2">Start Voting</button>
-                        <button id="endVotingBtn" class="btn btn-danger">End Voting</button>
-                        
-                        <div id="adminMessage" class="alert mt-3 d-none"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Voting Panel -->
-        <div id="votingPanel" class="card mb-4 d-none">
-            <div class="card-header bg-success text-white d-flex justify-content-between">
-                <span>Active Voting</span>
-                <span id="timeRemaining"></span>
-            </div>
-            <div class="card-body">
-                <div id="alreadyVotedAlert" class="alert alert-info d-none">
-                    You have already voted in this election.
-                </div>
-                
-                <div id="candidatesList" class="row">
-                    <!-- Candidates will be added here dynamically -->
-                </div>
-                
-                <div class="text-center mt-3">
-                    <button id="voteBtn" class="btn btn-primary btn-lg" disabled>Cast Your Vote</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Results Panel -->
-        <div id="resultsPanel" class="card d-none">
-            <div class="card-header bg-info text-white">
-                Voting Results
-            </div>
-            <div class="card-body">
-                <div id="noVotesAlert" class="alert alert-warning d-none">
-                    No votes have been cast yet.
-                </div>
-                
-                <div id="winnerSection" class="alert alert-success d-none">
-                    <h4>Winner: <span id="winnerName"></span></h4>
-                    <p>With <span id="winnerVotes"></span> votes</p>
-                </div>
-                
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Rank</th>
-                                <th>Candidate</th>
-                                <th>Votes</th>
-                                <th>Percentage</th>
-                            </tr>
-                        </thead>
-                        <tbody id="resultsTable">
-                            <!-- Results will be added here dynamically -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+        </section>
+    </main>
+    
+    <div id="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p id="loading-message">Processing...</p>
     </div>
+    
+    <footer>
+        <p>&copy; 2023 Blockchain Popularity Vote | Powered by Monad</p>
+    </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.1/dist/web3.min.js"></script>
-    <script src="js/app.js"></script>
+    <!-- Web3 ve diğer kütüphaneler -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.6.0/dist/web3.min.js"></script>
+    
+    <!-- Uygulama script'i -->
+    <script src="app.js"></script>
 </body>
 </html>
