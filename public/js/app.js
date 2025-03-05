@@ -11,7 +11,7 @@ function getCompatibleEthereumProvider() {
       ethereumProviderChecks++;
       console.log(`Provider kontrolü #${ethereumProviderChecks}`);
       
-      // Önce window.ethereum'ı kontrol et
+      // Önce window.ethereum'ı kontrol et (MetaMask, Coinbase Wallet vb.)
       if (window.ethereum) {
         console.log("Standard window.ethereum provider found:", window.ethereum);
         return resolve(window.ethereum);
@@ -23,14 +23,29 @@ function getCompatibleEthereumProvider() {
         return resolve(window.pocketUniverseProvider);
       }
       
+      // Web3Modal provider kontrolü
+      if (window.web3Modal && window.web3Modal.cachedProvider) {
+        console.log("Web3Modal cached provider found");
+        try {
+          window.web3Modal.connect().then(provider => {
+            return resolve(provider);
+          }).catch(err => {
+            console.error("Web3Modal connection error:", err);
+          });
+          return;
+        } catch (e) {
+          console.error("Web3Modal error:", e);
+        }
+      }
+      
       // MetaMask'in eski provider'ını kontrol et
       if (window.web3 && window.web3.currentProvider) {
         console.log("Legacy web3 provider found:", window.web3.currentProvider);
         return resolve(window.web3.currentProvider);
       }
       
-      // 15 deneme sonrası vazgeç (3 saniye)
-      if (ethereumProviderChecks > 15) {
+      // 30 deneme sonrası vazgeç (6 saniye)
+      if (ethereumProviderChecks > 30) {
         console.log("Provider bulunamadı, vazgeçiliyor");
         return reject(new Error("No Ethereum provider found after multiple attempts"));
       }
@@ -369,6 +384,12 @@ async function initializeApp() {
       console.log("Cüzdan bağlı, uygulama başlatılıyor...");
       
       if (!TEST_MODE) {
+        // Ağ kontrolü yap
+        const correctNetwork = await checkNetwork();
+        if (!correctNetwork) {
+          return; // Doğru ağda değilse işlemi durdur
+        }
+        
         // Kontrat instance'ı oluştur
         votingContract = new web3.eth.Contract(contractABI, contractAddress);
         console.log("Kontrat oluşturuldu:", votingContract);
@@ -475,61 +496,94 @@ function showConnectButton() {
     connectButton.parentNode.replaceChild(newButton, connectButton);
     
     // Yeni event listener ekle
-    newButton.addEventListener('click', async () => {
+   newButton.addEventListener('click', async () => {
+  try {
+    console.log("Cüzdan bağlantısı isteniyor...");
+    
+    if (!window.web3Provider) {
+      console.error("Web3 provider bulunamadı!");
+      
+      // Provider'ı tekrar almayı dene
       try {
-        console.log("Cüzdan bağlantısı isteniyor...");
-        
-        if (TEST_MODE) {
-          console.log("TEST MODU: Cüzdan bağlantısı simüle ediliyor");
-          // Test için sahte bir adres
-          userAddress = "0x1234567890123456789012345678901234567890";
-          
-          // Adresin kısaltılmış halini göster
-          const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
-          const walletAddressElement = document.getElementById('wallet-address');
-          if (walletAddressElement) {
-            walletAddressElement.textContent = shortAddress;
-          }
-          
-          // Bağlantı başarılı ise uygulamayı başlat
-          await initializeApp();
-          return;
-        }
-        
-        // Gerçek mod - normal bağlantı kodu...
-        if (!window.web3Provider) {
-          console.error("Web3 provider bulunamadı!");
-          showErrorMessage("Web3 provider bulunamadı. Lütfen cüzdan eklentinizi kontrol edin.");
-          return;
-        }
-        
-        try {
-          const accounts = await window.web3Provider.request({ 
-            method: 'eth_requestAccounts',
-            params: []
-          });
-          
-          console.log("Bağlantı başarılı, hesaplar:", accounts);
-          userAddress = accounts;
-          
-          // Bağlantı başarılı ise uygulamayı başlat
-          await initializeApp();
-        } catch (requestError) {
-          console.error("Cüzdan erişim isteği hatası:", requestError);
-          
-          if (requestError.code === 4001) {
-            showErrorMessage("Cüzdan bağlantısı kullanıcı tarafından reddedildi.");
-          } else {
-            showErrorMessage("Cüzdan bağlantısı sırasında bir hata oluştu: " + requestError.message);
-          }
-        }
-      } catch (error) {
-        console.error("Cüzdan bağlantısı genel hata:", error);
-        showErrorMessage("Cüzdan bağlantısı sırasında beklenmeyen bir hata oluştu.");
+        window.web3Provider = await getCompatibleEthereumProvider();
+        console.log("Provider yeniden alındı:", window.web3Provider);
+      } catch (providerError) {
+        console.error("Provider yeniden alınamadı:", providerError);
+        showErrorMessage("Web3 provider bulunamadı. Lütfen cüzdan eklentinizi kontrol edin.");
+        return;
       }
-    });
+    }
+    
+    try {
+      // Ethereum provider'ının hazır olup olmadığını kontrol et
+      if (typeof window.web3Provider.request !== 'function') {
+        console.error("Provider'da request fonksiyonu bulunamadı!");
+        showErrorMessage("Cüzdan eklentiniz uyumlu değil. Lütfen MetaMask veya başka bir uyumlu cüzdan kullanın.");
+        return;
+      }
+      
+      // Hesap erişimi iste
+      const accounts = await window.web3Provider.request({ 
+        method: 'eth_requestAccounts',
+        params: []
+      });
+      
+      console.log("Bağlantı başarılı, hesaplar:", accounts);
+      
+      if (!accounts || accounts.length === 0) {
+        console.error("Hesap bulunamadı!");
+        showErrorMessage("Cüzdan bağlandı ancak hesap bulunamadı. Lütfen cüzdanınızda bir hesap oluşturun.");
+        return;
+      }
+      
+      userAddress = accounts;
+      
+      // Web3 instance'ı yeniden oluştur
+      web3 = new Web3(window.web3Provider);
+      
+      // Bağlantı başarılı ise uygulamayı başlat
+      await initializeApp();
+    } catch (requestError) {
+      console.error("Cüzdan erişim isteği hatası:", requestError);
+      
+      if (requestError.code === 4001) {
+        showErrorMessage("Cüzdan bağlantısı kullanıcı tarafından reddedildi.");
+      } else {
+        showErrorMessage("Cüzdan bağlantısı sırasında bir hata oluştu: " + requestError.message);
+      }
+    }
+  } catch (error) {
+    console.error("Cüzdan bağlantısı genel hata:", error);
+    showErrorMessage("Cüzdan bağlantısı sırasında beklenmeyen bir hata oluştu.");
+  }
+});
   }
 }
+
+// Doğru ağa bağlı olduğunu kontrol eden fonksiyon
+async function checkNetwork() {
+  if (TEST_MODE) return true;
+  
+  try {
+    const chainId = await web3.eth.getChainId();
+    console.log("Bağlı olduğunuz ağ ID'si:", chainId);
+    
+    // Monad ağı için chain ID'yi kontrol edin (doğru ID'yi kullanın)
+    const requiredChainId = 10143; // Monad chain ID - doğru ID'yi kullanın
+    
+    if (chainId !== requiredChainId) {
+      showErrorMessage(`Lütfen cüzdanınızı Monad ağına (Chain ID: ${requiredChainId}) bağlayın. Şu anda Chain ID: ${chainId} ağındasınız.`);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Ağ kontrolü sırasında hata:", error);
+    showErrorMessage("Ağ kontrolü yapılırken bir hata oluştu.");
+    return false;
+  }
+}
+
 
 // Blockchain verilerini yükleyen fonksiyon
 async function loadBlockchainData() {
