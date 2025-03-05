@@ -340,7 +340,7 @@ function initializeWeb3Environment() {
           
           // Fallback olarak HTTP provider dene
           try {
-            web3 = new Web3('https://rpc1.monad.xyz'); // Monad RPC URL
+            web3 = new Web3('https://testnet-rpc.monad.xyz'); // Monad RPC URL
             console.log("Web3 HTTP provider ile başlatıldı");
             showConnectButton();
           } catch (fallbackError) {
