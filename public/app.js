@@ -473,13 +473,22 @@ async function checkConnection() {
       userAddress = accounts; // İlk hesabı alın
       console.log("Bağlandı:", userAddress);
       
-      // Adresin kısaltılmış halini göster
-      const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
-      
-      // Eğer wallet-address ID'li bir element varsa güncelle
-      const walletAddressElement = document.getElementById('wallet-address');
-      if (walletAddressElement) {
-        walletAddressElement.textContent = shortAddress;
+      // Adresin string olduğundan emin olun ve ancak o zaman substring işlemi yapın
+      if (typeof userAddress === 'string') {
+        const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
+        
+        // Eğer wallet-address ID'li bir element varsa güncelle
+        const walletAddressElement = document.getElementById('wallet-address');
+        if (walletAddressElement) {
+          walletAddressElement.textContent = shortAddress;
+        }
+      } else {
+        console.warn("userAddress bir string değil:", typeof userAddress, userAddress);
+        // String olmayan userAddress'i string'e çevirmeyi deneyin
+        if (userAddress) {
+          userAddress = String(userAddress);
+          console.log("userAddress string'e çevrildi:", userAddress);
+        }
       }
       
       return true;
@@ -531,117 +540,70 @@ function showConnectButton() {
     connectButton.parentNode.replaceChild(newButton, connectButton);
     
     // Yeni event listener ekle
-newButton.addEventListener('click', async () => {
-  try {
-    console.log("Cüzdan bağlantısı isteniyor...");
-    
-    if (TEST_MODE) {
-      console.log("TEST MODU: Cüzdan bağlantısı simüle ediliyor");
-      // Test için sahte bir adres
-      userAddress = "0x1234567890123456789012345678901234567890";
-      
-      // Adresin kısaltılmış halini göster
-      const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
-      const walletAddressElement = document.getElementById('wallet-address');
-      if (walletAddressElement) {
-        walletAddressElement.textContent = shortAddress;
-      }
-      
-      // Bağlantı başarılı ise uygulamayı başlat
-      await initializeApp();
-      return;
-    }
-    
-    // Provider kontrolü
-    if (!window.web3Provider) {
+    newButton.addEventListener('click', async () => {
       try {
-        window.web3Provider = await getCompatibleEthereumProvider();
-        console.log("Provider alındı:", window.web3Provider);
-      } catch (providerError) {
-        console.error("Provider alınamadı:", providerError);
-        showErrorMessage("Web3 provider bulunamadı. Lütfen cüzdan eklentinizi kontrol edin.");
-        return;
-      }
-    }
-    
-    try {
-      // Web3 instance'ı oluştur veya güncelle
-      web3 = new Web3(window.web3Provider);
-      console.log("Web3 instance oluşturuldu:", web3);
-      
-      // Hesap erişimi iste
-      let accounts;
-      try {
-        accounts = await window.web3Provider.request({ 
-          method: 'eth_requestAccounts',
-          params: []
-        });
-        console.log("eth_requestAccounts ile alınan hesaplar:", accounts);
-      } catch (requestError) {
-        console.error("eth_requestAccounts hatası:", requestError);
+        console.log("Cüzdan bağlantısı isteniyor...");
         
-        // Alternatif yöntem deneyin
-        try {
-          accounts = await web3.eth.requestAccounts();
-          console.log("web3.eth.requestAccounts ile alınan hesaplar:", accounts);
-        } catch (web3Error) {
-          console.error("web3.eth.requestAccounts hatası:", web3Error);
+        if (TEST_MODE) {
+          console.log("TEST MODU: Cüzdan bağlantısı simüle ediliyor");
+          // Test için sahte bir adres
+          userAddress = "0x1234567890123456789012345678901234567890";
           
-          // Son çare olarak enable() deneyin (eski yöntem)
-          try {
-            accounts = await window.web3Provider.enable();
-            console.log("enable() ile alınan hesaplar:", accounts);
-          } catch (enableError) {
-            console.error("enable() hatası:", enableError);
-            throw new Error("Hesaplara erişilemedi");
+          // Adresin kısaltılmış halini göster
+          if (typeof userAddress === 'string') {
+            const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
+            const walletAddressElement = document.getElementById('wallet-address');
+            if (walletAddressElement) {
+              walletAddressElement.textContent = shortAddress;
+            }
           }
+          
+          // Bağlantı başarılı ise uygulamayı başlat
+          await initializeApp();
+          return;
+        }
+        
+        // Ethereum provider kontrolü
+        const provider = window.web3Provider;
+        if (!provider) {
+          throw new Error("Provider bulunamadı");
+        }
+        
+        // Cüzdan bağlantısı iste
+        const accounts = await provider.request({ method: 'eth_requestAccounts' });
+        
+        if (accounts && accounts.length > 0) {
+          userAddress = accounts; // İlk hesabı seç
+          console.log("Bağlandı:", userAddress);
+          
+          // userAddress'in string olduğundan emin olun
+          if (typeof userAddress === 'string') {
+            // Adresin kısaltılmış halini göster
+            const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
+            const walletAddressElement = document.getElementById('wallet-address');
+            if (walletAddressElement) {
+              walletAddressElement.textContent = shortAddress;
+            }
+          } else {
+            console.warn("userAddress bir string değil:", typeof userAddress, userAddress);
+            // String olmayan userAddress'i string'e çevirmeyi deneyin
+            userAddress = String(userAddress);
+          }
+          
+          // Bağlantı başarılı ise uygulamayı başlat
+          await initializeApp();
+        }
+      } catch (error) {
+        console.error("Cüzdan erişim isteği hatası:", error);
+        
+        if (error.code === 4001) {
+          showErrorMessage("Cüzdan bağlantısı kullanıcı tarafından reddedildi.");
+        } else {
+          showErrorMessage("Cüzdan bağlantısı sırasında bir hata oluştu: " + error.message);
         }
       }
-      
-      console.log("Bağlantı başarılı, hesaplar:", accounts);
-      
-      if (!accounts || accounts.length === 0) {
-        console.error("Hesap bulunamadı!");
-        showErrorMessage("Cüzdan bağlandı ancak hesap bulunamadı. Lütfen cüzdanınızda bir hesap oluşturun.");
-        return;
-      }
-      
-      // ÖNEMLİ: userAddress'e accounts değerini atayın, accounts dizisinin kendisini değil
-      userAddress = accounts;
-      console.log("userAddress güncellendi:", userAddress);
-      
-      // localStorage'a kaydet
-      localStorage.setItem('userAddress', userAddress);
-      console.log("userAddress localStorage'a kaydedildi");
-      
-      // Adresin kısaltılmış halini göster
-      if (typeof userAddress === 'string') {
-        const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
-        const walletAddressElement = document.getElementById('wallet-address');
-        if (walletAddressElement) {
-          walletAddressElement.textContent = shortAddress;
-        }
-      } else {
-        console.error("userAddress bir string değil:", userAddress);
-      }
-      
-      // Bağlantı başarılı ise uygulamayı başlat
-      await initializeApp();
-    } catch (error) {
-      console.error("Cüzdan erişim isteği hatası:", error);
-      
-      if (error.code === 4001) {
-        showErrorMessage("Cüzdan bağlantısı kullanıcı tarafından reddedildi.");
-      } else {
-        showErrorMessage("Cüzdan bağlantısı sırasında bir hata oluştu: " + error.message);
-      }
-    }
-  } catch (error) {
-    console.error("Cüzdan bağlantısı genel hata:", error);
-    showErrorMessage("Cüzdan bağlantısı sırasında beklenmeyen bir hata oluştu.");
+    });
   }
-});
-}	  
 }
 // Doğru ağa bağlı olduğunu kontrol eden fonksiyon
 async function checkNetwork() {
