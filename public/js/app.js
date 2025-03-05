@@ -280,6 +280,17 @@ document.addEventListener('DOMContentLoaded', function() {
   console.log("DOM yüklendi, uygulama başlatılıyor...");
   console.log("Test modu:", TEST_MODE ? "AÇIK" : "KAPALI");
   
+  // localStorage'dan userAddress'i yükle
+  const savedAddress = localStorage.getItem('userAddress');
+  if (savedAddress) {
+    console.log("Kaydedilmiş adres bulundu:", savedAddress);
+    userAddress = savedAddress;
+  }
+  
+  // Tarayıcı ve cihaz bilgilerini logla
+  console.log("User Agent:", navigator.userAgent);
+  console.log("Platform:", navigator.platform);
+  
   // Hata ayıklama bilgisi
   console.log("window.ethereum:", window.ethereum);
   console.log("window.pocketUniverseProvider:", window.pocketUniverseProvider);
@@ -290,6 +301,7 @@ document.addEventListener('DOMContentLoaded', function() {
   setTimeout(initializeWeb3Environment, 1000);
 });
 
+// Web3 ortamını başlatan fonksiyon
 // Web3 ortamını başlatan fonksiyon
 function initializeWeb3Environment() {
   try {
@@ -310,25 +322,32 @@ function initializeWeb3Environment() {
         // Provider'ı global olarak saklayalım
         window.web3Provider = provider;
         
-        // Web3 instance oluştur - Fallback olarak HTTP provider ekle
+        // Web3 instance oluştur
         try {
           web3 = new Web3(provider);
           console.log("Web3 başarıyla başlatıldı", web3);
+          
+          // Eğer localStorage'da userAddress varsa, hemen initializeApp'i çağır
+          if (userAddress) {
+            console.log("Kaydedilmiş adres ile uygulamayı başlatma deneniyor");
+            initializeApp();
+          } else {
+            // Adres yoksa, bağlantı butonunu göster
+            showConnectButton();
+          }
         } catch (web3Error) {
           console.error("Web3 başlatma hatası:", web3Error);
           
           // Fallback olarak HTTP provider dene
           try {
-            web3 = new Web3('https://testnet-rpc.monad.xyz'); // Monad RPC URL
+            web3 = new Web3('https://rpc1.monad.xyz'); // Monad RPC URL
             console.log("Web3 HTTP provider ile başlatıldı");
+            showConnectButton();
           } catch (fallbackError) {
             console.error("Fallback Web3 başlatma hatası:", fallbackError);
-            throw new Error("Web3 başlatılamadı");
+            showErrorMessage("Web3 başlatılamadı. Lütfen cüzdan eklentinizi kontrol edin.");
           }
         }
-        
-        // Uygulama başlatma
-        initializeApp();
         
         // Olay dinleyicilerini ekle
         setupEventListeners(provider);
@@ -431,11 +450,26 @@ async function checkConnection() {
     }
 
     // Cüzdan bağlantısı kontrolü
-    const accounts = await provider.request({ method: 'eth_accounts' });
-    userAddress = accounts;
+    let accounts;
+    try {
+      accounts = await provider.request({ method: 'eth_accounts' });
+      console.log("eth_accounts ile alınan hesaplar:", accounts);
+    } catch (error) {
+      console.error("eth_accounts hatası:", error);
+      
+      // Alternatif yöntem deneyin
+      try {
+        accounts = await web3.eth.getAccounts();
+        console.log("getAccounts ile alınan hesaplar:", accounts);
+      } catch (err) {
+        console.error("getAccounts hatası:", err);
+        accounts = [];
+      }
+    }
     
     // userAddress kontrolü
-    if (userAddress && typeof userAddress === 'string') {
+    if (accounts && accounts.length > 0) {
+      userAddress = accounts;
       console.log("Bağlandı:", userAddress);
       
       // Adresin kısaltılmış halini göster
@@ -496,37 +530,72 @@ function showConnectButton() {
     connectButton.parentNode.replaceChild(newButton, connectButton);
     
     // Yeni event listener ekle
-   newButton.addEventListener('click', async () => {
+newButton.addEventListener('click', async () => {
   try {
     console.log("Cüzdan bağlantısı isteniyor...");
     
-    if (!window.web3Provider) {
-      console.error("Web3 provider bulunamadı!");
+    if (TEST_MODE) {
+      console.log("TEST MODU: Cüzdan bağlantısı simüle ediliyor");
+      // Test için sahte bir adres
+      userAddress = "0x1234567890123456789012345678901234567890";
       
-      // Provider'ı tekrar almayı dene
+      // Adresin kısaltılmış halini göster
+      const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
+      const walletAddressElement = document.getElementById('wallet-address');
+      if (walletAddressElement) {
+        walletAddressElement.textContent = shortAddress;
+      }
+      
+      // Bağlantı başarılı ise uygulamayı başlat
+      await initializeApp();
+      return;
+    }
+    
+    // Provider kontrolü
+    if (!window.web3Provider) {
       try {
         window.web3Provider = await getCompatibleEthereumProvider();
-        console.log("Provider yeniden alındı:", window.web3Provider);
+        console.log("Provider alındı:", window.web3Provider);
       } catch (providerError) {
-        console.error("Provider yeniden alınamadı:", providerError);
+        console.error("Provider alınamadı:", providerError);
         showErrorMessage("Web3 provider bulunamadı. Lütfen cüzdan eklentinizi kontrol edin.");
         return;
       }
     }
     
     try {
-      // Ethereum provider'ının hazır olup olmadığını kontrol et
-      if (typeof window.web3Provider.request !== 'function') {
-        console.error("Provider'da request fonksiyonu bulunamadı!");
-        showErrorMessage("Cüzdan eklentiniz uyumlu değil. Lütfen MetaMask veya başka bir uyumlu cüzdan kullanın.");
-        return;
-      }
+      // Web3 instance'ı oluştur veya güncelle
+      web3 = new Web3(window.web3Provider);
+      console.log("Web3 instance oluşturuldu:", web3);
       
       // Hesap erişimi iste
-      const accounts = await window.web3Provider.request({ 
-        method: 'eth_requestAccounts',
-        params: []
-      });
+      let accounts;
+      try {
+        accounts = await window.web3Provider.request({ 
+          method: 'eth_requestAccounts',
+          params: []
+        });
+        console.log("eth_requestAccounts ile alınan hesaplar:", accounts);
+      } catch (requestError) {
+        console.error("eth_requestAccounts hatası:", requestError);
+        
+        // Alternatif yöntem deneyin
+        try {
+          accounts = await web3.eth.requestAccounts();
+          console.log("web3.eth.requestAccounts ile alınan hesaplar:", accounts);
+        } catch (web3Error) {
+          console.error("web3.eth.requestAccounts hatası:", web3Error);
+          
+          // Son çare olarak enable() deneyin (eski yöntem)
+          try {
+            accounts = await window.web3Provider.enable();
+            console.log("enable() ile alınan hesaplar:", accounts);
+          } catch (enableError) {
+            console.error("enable() hatası:", enableError);
+            throw new Error("Hesaplara erişilemedi");
+          }
+        }
+      }
       
       console.log("Bağlantı başarılı, hesaplar:", accounts);
       
@@ -536,20 +605,27 @@ function showConnectButton() {
         return;
       }
       
+      // userAddress'i güncelle ve localStorage'a kaydet
       userAddress = accounts;
+      localStorage.setItem('userAddress', userAddress);
+      console.log("userAddress güncellendi ve kaydedildi:", userAddress);
       
-      // Web3 instance'ı yeniden oluştur
-      web3 = new Web3(window.web3Provider);
+      // Adresin kısaltılmış halini göster
+      const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
+      const walletAddressElement = document.getElementById('wallet-address');
+      if (walletAddressElement) {
+        walletAddressElement.textContent = shortAddress;
+      }
       
       // Bağlantı başarılı ise uygulamayı başlat
       await initializeApp();
-    } catch (requestError) {
-      console.error("Cüzdan erişim isteği hatası:", requestError);
+    } catch (error) {
+      console.error("Cüzdan erişim isteği hatası:", error);
       
-      if (requestError.code === 4001) {
+      if (error.code === 4001) {
         showErrorMessage("Cüzdan bağlantısı kullanıcı tarafından reddedildi.");
       } else {
-        showErrorMessage("Cüzdan bağlantısı sırasında bir hata oluştu: " + requestError.message);
+        showErrorMessage("Cüzdan bağlantısı sırasında bir hata oluştu: " + error.message);
       }
     }
   } catch (error) {
