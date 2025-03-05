@@ -1,15 +1,31 @@
-// App.js veya main.js başlangıcında
-window.addEventListener('load', function() {
-  if (typeof window.ethereum === 'undefined') {
-    console.log('MetaMask yüklü değil!');
-    // MetaMask'in yüklü olmadığını kullanıcıya bildiren bir UI gösterin
-    document.getElementById('metamask-warning').style.display = 'block';
-  } else {
-    console.log('MetaMask yüklü!');
-    // Ethereum ile etkileşime geçen kodunuz burada
-    startApp();
-  }
+window.addEventListener('load', async function() {
+  // Ethereum provider'ın yüklenmesi için biraz bekleyin
+  setTimeout(async () => {
+    try {
+      if (typeof window.ethereum === 'undefined' && typeof window.pocketUniverse === 'undefined') {
+        console.log("MetaMask veya uyumlu bir cüzdan bulunamadı!");
+        showWalletWarning();
+      } else {
+        console.log("Ethereum provider bulundu!");
+        await initializeApp();
+      }
+    } catch (error) {
+      console.error("Provider kontrolü sırasında hata:", error);
+      showErrorMessage("Web3 cüzdanına bağlanırken bir sorun oluştu.");
+    }
+  }, 500); // 500ms bekleyin
 });
+
+function showWalletWarning() {
+  const metamaskWarning = document.createElement('div');
+  metamaskWarning.innerHTML = `
+    <div style="background-color: #ffebee; color: #c62828; padding: 10px; margin: 10px 0; border-radius: 5px; text-align: center;">
+      <p>Bu uygulama için MetaMask gereklidir. Lütfen <a href="https://metamask.io/" target="_blank" style="color: #c62828; text-decoration: underline;">MetaMask'i yükleyin</a> ve sayfayı yenileyin.</p>
+    </div>
+  `;
+  
+  document.body.insertBefore(metamaskWarning, document.body.firstChild);
+}
 
 // Web3 ve kontrat değişkenleri
 let web3;
@@ -40,6 +56,48 @@ document.addEventListener('DOMContentLoaded', function() {
         showError("Please install MetaMask or another Web3 provider to use this application.");
     }
 });
+
+async function getEthereumProvider() {
+  return new Promise((resolve, reject) => {
+    // Provider zaten varsa hemen döndür
+    if (window.ethereum) {
+      return resolve(window.ethereum);
+    } else if (window.pocketUniverse) {
+      return resolve(window.pocketUniverse);
+    }
+    
+    // Provider'ın yüklenmesini bekle
+    let checkCount = 0;
+    const checkInterval = setInterval(() => {
+      checkCount++;
+      
+      if (window.ethereum) {
+        clearInterval(checkInterval);
+        return resolve(window.ethereum);
+      } else if (window.pocketUniverse) {
+        clearInterval(checkInterval);
+        return resolve(window.pocketUniverse);
+      }
+      
+      // 10 deneme sonrası vazgeç
+      if (checkCount > 10) {
+        clearInterval(checkInterval);
+        reject(new Error("Ethereum provider bulunamadı"));
+      }
+    }, 200);
+  });
+}
+
+// Kullanım:
+async function initializeApp() {
+  try {
+    const provider = await getEthereumProvider();
+    // Provider ile işlem yap...
+  } catch (error) {
+    console.error("Provider bulunamadı:", error);
+    showWalletWarning();
+  }
+}
 
 
 // Cüzdan bağlantısını kontrol et
