@@ -450,7 +450,7 @@ async function checkConnection() {
     }
 
     // Cüzdan bağlantısı kontrolü
-    let accounts;
+    let accounts = [];
     try {
       accounts = await provider.request({ method: 'eth_accounts' });
       console.log("eth_accounts ile alınan hesaplar:", accounts);
@@ -463,32 +463,30 @@ async function checkConnection() {
         console.log("getAccounts ile alınan hesaplar:", accounts);
       } catch (err) {
         console.error("getAccounts hatası:", err);
-        accounts = [];
       }
     }
     
-    // userAddress kontrolü
+    // Hesap kontrolü
     if (accounts && accounts.length > 0) {
-      // Önemli: userAddress bir string olmalı, array değil
-      userAddress = accounts; // İlk hesabı alın
-      console.log("Bağlandı:", userAddress);
+      // Array içindeki ilk hesabı alın (bir string olmalı)
+      const account = accounts;
+      console.log("Bağlandı, hesap:", account);
       
-      // Adresin string olduğundan emin olun ve ancak o zaman substring işlemi yapın
-      if (typeof userAddress === 'string') {
-        const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
+      // userAddress'i güncelle
+      userAddress = account;
+      
+      try {
+        // Adresin kısaltılmış halini göster
+        const shortAddress = account.substring(0, 6) + "..." + account.substring(account.length - 4);
         
         // Eğer wallet-address ID'li bir element varsa güncelle
         const walletAddressElement = document.getElementById('wallet-address');
         if (walletAddressElement) {
           walletAddressElement.textContent = shortAddress;
         }
-      } else {
-        console.warn("userAddress bir string değil:", typeof userAddress, userAddress);
-        // String olmayan userAddress'i string'e çevirmeyi deneyin
-        if (userAddress) {
-          userAddress = String(userAddress);
-          console.log("userAddress string'e çevrildi:", userAddress);
-        }
+      } catch (error) {
+        console.error("Adres kısaltma hatası:", error);
+        console.log("Adres tipi:", typeof account, account);
       }
       
       return true;
@@ -550,12 +548,14 @@ function showConnectButton() {
           userAddress = "0x1234567890123456789012345678901234567890";
           
           // Adresin kısaltılmış halini göster
-          if (typeof userAddress === 'string') {
+          try {
             const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
             const walletAddressElement = document.getElementById('wallet-address');
             if (walletAddressElement) {
               walletAddressElement.textContent = shortAddress;
             }
+          } catch (error) {
+            console.error("Adres kısaltma hatası:", error);
           }
           
           // Bağlantı başarılı ise uygulamayı başlat
@@ -573,25 +573,29 @@ function showConnectButton() {
         const accounts = await provider.request({ method: 'eth_requestAccounts' });
         
         if (accounts && accounts.length > 0) {
-          userAddress = accounts; // İlk hesabı seç
-          console.log("Bağlandı:", userAddress);
+          // Array içindeki ilk hesabı alın (bir string olmalı)
+          const account = accounts;
+          console.log("Bağlandı, hesap:", account);
           
-          // userAddress'in string olduğundan emin olun
-          if (typeof userAddress === 'string') {
+          // userAddress'i güncelle
+          userAddress = account;
+          
+          try {
             // Adresin kısaltılmış halini göster
-            const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
+            const shortAddress = account.substring(0, 6) + "..." + account.substring(account.length - 4);
             const walletAddressElement = document.getElementById('wallet-address');
             if (walletAddressElement) {
               walletAddressElement.textContent = shortAddress;
             }
-          } else {
-            console.warn("userAddress bir string değil:", typeof userAddress, userAddress);
-            // String olmayan userAddress'i string'e çevirmeyi deneyin
-            userAddress = String(userAddress);
+          } catch (error) {
+            console.error("Adres kısaltma hatası:", error);
+            console.log("Adres tipi:", typeof account, account);
           }
           
           // Bağlantı başarılı ise uygulamayı başlat
           await initializeApp();
+        } else {
+          showErrorMessage("Cüzdan bağlantısı başarısız. Hesap bulunamadı.");
         }
       } catch (error) {
         console.error("Cüzdan erişim isteği hatası:", error);
@@ -605,6 +609,7 @@ function showConnectButton() {
     });
   }
 }
+ 
 // Doğru ağa bağlı olduğunu kontrol eden fonksiyon
 async function checkNetwork() {
   if (TEST_MODE) return true;
@@ -753,14 +758,9 @@ function setupEntryFeeButton() {
         const entryFee = await votingContract.methods.ENTRY_FEE().call();
         console.log("Giriş ücreti:", entryFee);
         
-        // userAddress'in string olduğundan emin olun
-        let fromAddress = userAddress;
-        if (Array.isArray(userAddress)) {
-          fromAddress = userAddress; // Eğer bir dizi ise ilk elemanı alın
-        }
-        
+        // Kontrat metodu çağrısı
         await votingContract.methods.payEntryFee().send({
-          from: fromAddress,
+          from: userAddress, // userAddress artık doğru bir string olmalı
           value: entryFee
         });
         
@@ -813,19 +813,28 @@ async function voteForBlockchain(blockchainId) {
     showLoading("Oy veriliyor...");
     
     if (TEST_MODE) {
-      // Test modu kodu...
+      console.log("TEST MODU: Oy verme işlemi simüle ediliyor", blockchainId);
+      // Simüle edilmiş oy verme
+      setTimeout(() => {
+        // Seçilen blockchain için oy sayısını artır
+        blockchains = blockchains.map(bc => {
+          if (bc.id == blockchainId) {
+            return {...bc, voteCount: parseInt(bc.voteCount) + 1};
+          }
+          return bc;
+        });
+        
+        updateResults();
+        createBlockchainCards();
+        showSuccessMessage("Test modu: Oyunuz başarıyla kaydedildi!");
+        hideLoading();
+      }, 1000);
       return;
-    }
-    
-    // userAddress'in string olduğundan emin olun
-    let fromAddress = userAddress;
-    if (Array.isArray(userAddress)) {
-      fromAddress = userAddress;
     }
     
     // Gerçek oy verme kodu...
     await votingContract.methods.vote(blockchainId).send({
-      from: fromAddress
+      from: userAddress // userAddress artık doğru bir string olmalı
     });
     
     await loadBlockchainData();
@@ -838,7 +847,6 @@ async function voteForBlockchain(blockchainId) {
     showErrorMessage("Oy verme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.");
   }
 }
-
 // Sonuçları güncelleyen fonksiyon
 function updateResults() {
   const resultsContainer = document.getElementById('results-container');
