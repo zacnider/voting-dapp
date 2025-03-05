@@ -469,21 +469,17 @@ async function checkConnection() {
     
     // userAddress kontrolü
     if (accounts && accounts.length > 0) {
-      // ÖNEMLİ: userAddress'e accounts değerini atayın, accounts dizisinin kendisini değil
-      userAddress = accounts;
+      // Önemli: userAddress bir string olmalı, array değil
+      userAddress = accounts; // İlk hesabı alın
       console.log("Bağlandı:", userAddress);
       
       // Adresin kısaltılmış halini göster
-      if (typeof userAddress === 'string') {
-        const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
-        
-        // Eğer wallet-address ID'li bir element varsa güncelle
-        const walletAddressElement = document.getElementById('wallet-address');
-        if (walletAddressElement) {
-          walletAddressElement.textContent = shortAddress;
-        }
-      } else {
-        console.error("userAddress bir string değil:", userAddress);
+      const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
+      
+      // Eğer wallet-address ID'li bir element varsa güncelle
+      const walletAddressElement = document.getElementById('wallet-address');
+      if (walletAddressElement) {
+        walletAddressElement.textContent = shortAddress;
       }
       
       return true;
@@ -795,8 +791,14 @@ function setupEntryFeeButton() {
         const entryFee = await votingContract.methods.ENTRY_FEE().call();
         console.log("Giriş ücreti:", entryFee);
         
+        // userAddress'in string olduğundan emin olun
+        let fromAddress = userAddress;
+        if (Array.isArray(userAddress)) {
+          fromAddress = userAddress; // Eğer bir dizi ise ilk elemanı alın
+        }
+        
         await votingContract.methods.payEntryFee().send({
-          from: userAddress,
+          from: fromAddress,
           value: entryFee
         });
         
@@ -813,6 +815,7 @@ function setupEntryFeeButton() {
     });
   }
 }
+ 
 
 // Blockchain kartlarını oluşturan fonksiyon
 function createBlockchainCards() {
@@ -848,28 +851,19 @@ async function voteForBlockchain(blockchainId) {
     showLoading("Oy veriliyor...");
     
     if (TEST_MODE) {
-      console.log("TEST MODU: Oy verme işlemi simüle ediliyor", blockchainId);
-      // Simüle edilmiş oy verme
-      setTimeout(() => {
-        // Seçilen blockchain için oy sayısını artır
-        blockchains = blockchains.map(bc => {
-          if (bc.id == blockchainId) {
-            return {...bc, voteCount: parseInt(bc.voteCount) + 1};
-          }
-          return bc;
-        });
-        
-        updateResults();
-        createBlockchainCards();
-        showSuccessMessage("Test modu: Oyunuz başarıyla kaydedildi!");
-        hideLoading();
-      }, 1000);
+      // Test modu kodu...
       return;
+    }
+    
+    // userAddress'in string olduğundan emin olun
+    let fromAddress = userAddress;
+    if (Array.isArray(userAddress)) {
+      fromAddress = userAddress;
     }
     
     // Gerçek oy verme kodu...
     await votingContract.methods.vote(blockchainId).send({
-      from: userAddress
+      from: fromAddress
     });
     
     await loadBlockchainData();
