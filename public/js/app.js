@@ -41,8 +41,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-function checkConnection() {
-  try {
+
+// Cüzdan bağlantısını kontrol et
+async function checkConnection() {
+try {
     // Ethereum provider kontrolü
     if (typeof window.ethereum === 'undefined') {
       console.log("MetaMask yüklü değil!");
@@ -69,38 +71,6 @@ function checkConnection() {
     console.error("Bağlantı kontrolü sırasında hata:", error);
     return false;
   }
-}
-
-
-
-// Cüzdan bağlantısını kontrol et
-async function checkConnection() {
-    try {
-        const accounts = await web3.eth.getAccounts();
-        
-        if (accounts.length > 0) {
-            currentAccount = accounts;
-            document.getElementById('accountAddress').textContent = `${currentAccount.substring(0, 6)}...${currentAccount.substring(currentAccount.length - 4)}`;
-            document.getElementById('connectBtn').textContent = 'Connected';
-            
-            // Ağ bilgisini al
-            const networkId = await web3.eth.net.getId();
-            const networkName = getNetworkName(networkId);
-            document.getElementById('networkName').textContent = networkName;
-            
-            // Kontrat instance'ı oluştur
-            if (contractAddress) {
-                initializeContract();
-            } else {
-                showError("Contract address is not set. Please deploy the contract first.");
-            }
-        } else {
-            showNotConnected();
-        }
-    } catch (error) {
-        console.error("Error checking connection:", error);
-        showError("Error connecting to blockchain: " + error.message);
-    }
 }
 
 // Cüzdana bağlan
