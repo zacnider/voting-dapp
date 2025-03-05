@@ -1,3 +1,16 @@
+// App.js veya main.js başlangıcında
+window.addEventListener('load', function() {
+  if (typeof window.ethereum === 'undefined') {
+    console.log('MetaMask yüklü değil!');
+    // MetaMask'in yüklü olmadığını kullanıcıya bildiren bir UI gösterin
+    document.getElementById('metamask-warning').style.display = 'block';
+  } else {
+    console.log('MetaMask yüklü!');
+    // Ethereum ile etkileşime geçen kodunuz burada
+    startApp();
+  }
+});
+
 // Web3 ve kontrat değişkenleri
 let web3;
 let votingContract;
