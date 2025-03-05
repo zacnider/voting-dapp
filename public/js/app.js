@@ -1,36 +1,42 @@
 // app.js - Blockchain Oylama Uygulaması
 
+// Test modu - gerçek kontrat bağlantısı olmadan test etmek için
+const TEST_MODE = true; // Gerçek kontrat entegrasyonu için false yapın
+
 // Ethereum provider için güvenli erişim sağlayan yardımcı fonksiyon
 let ethereumProviderChecks = 0;
 function getCompatibleEthereumProvider() {
   return new Promise((resolve, reject) => {
     const checkProvider = () => {
       ethereumProviderChecks++;
+      console.log(`Provider kontrolü #${ethereumProviderChecks}`);
       
       // Önce window.ethereum'ı kontrol et
       if (window.ethereum) {
-        console.log("Standard window.ethereum provider found");
+        console.log("Standard window.ethereum provider found:", window.ethereum);
         return resolve(window.ethereum);
       }
       
       // Pocket Universe'in özel provider'ını kontrol et
       if (window.pocketUniverseProvider) {
-        console.log("Pocket Universe provider found");
+        console.log("Pocket Universe provider found:", window.pocketUniverseProvider);
         return resolve(window.pocketUniverseProvider);
       }
       
       // MetaMask'in eski provider'ını kontrol et
       if (window.web3 && window.web3.currentProvider) {
-        console.log("Legacy web3 provider found");
+        console.log("Legacy web3 provider found:", window.web3.currentProvider);
         return resolve(window.web3.currentProvider);
       }
       
-      // 10 deneme sonrası vazgeç (2 saniye)
-      if (ethereumProviderChecks > 10) {
-        return reject(new Error("No Ethereum provider found"));
+      // 15 deneme sonrası vazgeç (3 saniye)
+      if (ethereumProviderChecks > 15) {
+        console.log("Provider bulunamadı, vazgeçiliyor");
+        return reject(new Error("No Ethereum provider found after multiple attempts"));
       }
       
       // 200ms sonra tekrar dene
+      console.log("Provider bulunamadı, tekrar deneniyor...");
       setTimeout(checkProvider, 200);
     };
     
@@ -257,6 +263,7 @@ let blockchains = [];
 // Sayfa yüklendiğinde çalışacak kod
 document.addEventListener('DOMContentLoaded', function() {
   console.log("DOM yüklendi, uygulama başlatılıyor...");
+  console.log("Test modu:", TEST_MODE ? "AÇIK" : "KAPALI");
   
   // Hata ayıklama bilgisi
   console.log("window.ethereum:", window.ethereum);
@@ -273,16 +280,37 @@ function initializeWeb3Environment() {
   try {
     console.log("Web3 ortamı başlatılıyor...");
     
+    if (TEST_MODE) {
+      console.log("TEST MODU: Web3 başlatma işlemi atlanıyor");
+      // Test modunda, direkt olarak uygulama başlatma
+      showConnectButton();
+      return;
+    }
+    
     // Ethereum provider kontrolü
-    getEthereumProvider()
+    getCompatibleEthereumProvider()
       .then(provider => {
         console.log("Ethereum provider bulundu!", provider);
+        
         // Provider'ı global olarak saklayalım
         window.web3Provider = provider;
         
-        // Web3 instance oluştur
-        web3 = new Web3(provider);
-        console.log("Web3 başarıyla başlatıldı", web3);
+        // Web3 instance oluştur - Fallback olarak HTTP provider ekle
+        try {
+          web3 = new Web3(provider);
+          console.log("Web3 başarıyla başlatıldı", web3);
+        } catch (web3Error) {
+          console.error("Web3 başlatma hatası:", web3Error);
+          
+          // Fallback olarak HTTP provider dene
+          try {
+            web3 = new Web3('https://rpc1.monad.xyz'); // Monad RPC URL
+            console.log("Web3 HTTP provider ile başlatıldı");
+          } catch (fallbackError) {
+            console.error("Fallback Web3 başlatma hatası:", fallbackError);
+            throw new Error("Web3 başlatılamadı");
+          }
+        }
         
         // Uygulama başlatma
         initializeApp();
@@ -302,6 +330,8 @@ function initializeWeb3Environment() {
 
 // Ethereum hesap değişikliklerini dinleyen fonksiyon
 function setupEventListeners(provider) {
+  if (TEST_MODE) return; // Test modunda event listener'ları atla
+  
   try {
     // Hesap değişikliği dinleme
     provider.on('accountsChanged', (accounts) => {
@@ -338,9 +368,11 @@ async function initializeApp() {
     if (connected) {
       console.log("Cüzdan bağlı, uygulama başlatılıyor...");
       
-      // Kontrat instance'ı oluştur
-      votingContract = new web3.eth.Contract(contractABI, contractAddress);
-      console.log("Kontrat oluşturuldu:", votingContract);
+      if (!TEST_MODE) {
+        // Kontrat instance'ı oluştur
+        votingContract = new web3.eth.Contract(contractABI, contractAddress);
+        console.log("Kontrat oluşturuldu:", votingContract);
+      }
       
       // Kullanıcının giriş ücreti ödeyip ödemediğini kontrol et
       await checkUserPaymentStatus();
@@ -365,6 +397,10 @@ async function initializeApp() {
 async function checkConnection() {
   try {
     console.log("Cüzdan bağlantısı kontrol ediliyor...");
+    
+    if (TEST_MODE) {
+      return userAddress ? true : false; // Test modunda userAddress varsa bağlı kabul et
+    }
     
     // Ethereum provider kontrolü
     const provider = window.web3Provider;
@@ -406,12 +442,18 @@ async function checkUserPaymentStatus() {
   try {
     console.log("Kullanıcı ödeme durumu kontrol ediliyor...");
     
+    if (TEST_MODE) {
+      // Test modunda - varsayılan olarak false
+      hasUserPaidFee = false;
+      console.log("TEST MODU: Kullanıcı ücret ödemiş mi:", hasUserPaidFee);
+      return;
+    }
+    
     // Gerçek kontrat çağrısı:
     try {
       hasUserPaidFee = await votingContract.methods.hasUserPaid(userAddress).call();
     } catch (error) {
       console.error("Kontrat çağrısı hatası:", error);
-      // Test için örnek veri kullanıyoruz
       hasUserPaidFee = false;
     }
     
@@ -436,14 +478,54 @@ function showConnectButton() {
     newButton.addEventListener('click', async () => {
       try {
         console.log("Cüzdan bağlantısı isteniyor...");
-        const provider = window.web3Provider;
-        await provider.request({ method: 'eth_requestAccounts' });
         
-        // Bağlantı başarılı ise uygulamayı başlat
-        await initializeApp();
+        if (TEST_MODE) {
+          console.log("TEST MODU: Cüzdan bağlantısı simüle ediliyor");
+          // Test için sahte bir adres
+          userAddress = "0x1234567890123456789012345678901234567890";
+          
+          // Adresin kısaltılmış halini göster
+          const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
+          const walletAddressElement = document.getElementById('wallet-address');
+          if (walletAddressElement) {
+            walletAddressElement.textContent = shortAddress;
+          }
+          
+          // Bağlantı başarılı ise uygulamayı başlat
+          await initializeApp();
+          return;
+        }
+        
+        // Gerçek mod - normal bağlantı kodu...
+        if (!window.web3Provider) {
+          console.error("Web3 provider bulunamadı!");
+          showErrorMessage("Web3 provider bulunamadı. Lütfen cüzdan eklentinizi kontrol edin.");
+          return;
+        }
+        
+        try {
+          const accounts = await window.web3Provider.request({ 
+            method: 'eth_requestAccounts',
+            params: []
+          });
+          
+          console.log("Bağlantı başarılı, hesaplar:", accounts);
+          userAddress = accounts;
+          
+          // Bağlantı başarılı ise uygulamayı başlat
+          await initializeApp();
+        } catch (requestError) {
+          console.error("Cüzdan erişim isteği hatası:", requestError);
+          
+          if (requestError.code === 4001) {
+            showErrorMessage("Cüzdan bağlantısı kullanıcı tarafından reddedildi.");
+          } else {
+            showErrorMessage("Cüzdan bağlantısı sırasında bir hata oluştu: " + requestError.message);
+          }
+        }
       } catch (error) {
-        console.error("Cüzdan bağlantısı başarısız:", error);
-        showErrorMessage("Cüzdan bağlantısı başarısız. Lütfen tekrar deneyin.");
+        console.error("Cüzdan bağlantısı genel hata:", error);
+        showErrorMessage("Cüzdan bağlantısı sırasında beklenmeyen bir hata oluştu.");
       }
     });
   }
@@ -454,13 +536,9 @@ async function loadBlockchainData() {
   try {
     showLoading("Blockchain verileri yükleniyor...");
     
-    // Gerçek kontrat çağrısı:
-    try {
-      blockchains = await votingContract.methods.getAllBlockchains().call();
-      console.log("Kontrat üzerinden alınan blockchain zincirleri:", blockchains);
-    } catch (error) {
-      console.error("Blockchain verileri alınamadı:", error);
-      // Test için örnek veriler kullanıyoruz
+    if (TEST_MODE) {
+      // Test modunda örnek veriler kullan
+      console.log("TEST MODU: Örnek blockchain verileri yükleniyor");
       blockchains = [
         { id: 1, name: "Monad", symbol: "MON", voteCount: 120 },
         { id: 2, name: "Ethereum", symbol: "ETH", voteCount: 85 },
@@ -473,6 +551,20 @@ async function loadBlockchainData() {
         { id: 9, name: "Polygon", symbol: "MATIC", voteCount: 25 },
         { id: 10, name: "Cosmos", symbol: "ATOM", voteCount: 20 }
       ];
+      
+      // Sonuçları güncelle
+      updateResults();
+      hideLoading();
+      return;
+    }
+    
+    // Gerçek kontrat çağrısı:
+    try {
+      blockchains = await votingContract.methods.getAllBlockchains().call();
+      console.log("Kontrat üzerinden alınan blockchain zincirleri:", blockchains);
+    } catch (error) {
+      console.error("Blockchain verileri alınamadı:", error);
+      blockchains = [];
     }
     
     // Sonuçları güncelle
@@ -546,20 +638,28 @@ function setupEntryFeeButton() {
       try {
         showLoading("Ödeme işlemi yapılıyor...");
         
-        // ENTRY_FEE değerini kontrat üzerinden al
+        if (TEST_MODE) {
+          console.log("TEST MODU: Ödeme işlemi simüle ediliyor");
+          // Simüle edilmiş ödeme
+          setTimeout(() => {
+            hasUserPaidFee = true;
+            updateUI();
+            showSuccessMessage("Test modu: Giriş ücreti başarıyla ödendi! Artık oy kullanabilirsiniz.");
+            hideLoading();
+          }, 1500);
+          return;
+        }
+        
+        // Gerçek ödeme kodu...
         const entryFee = await votingContract.methods.ENTRY_FEE().call();
         console.log("Giriş ücreti:", entryFee);
         
-        // Ödeme işlemini gerçekleştir
         await votingContract.methods.payEntryFee().send({
           from: userAddress,
           value: entryFee
         });
         
-        // Ödeme durumunu güncelle
         hasUserPaidFee = true;
-        
-        // UI'ı güncelle
         updateUI();
         
         showSuccessMessage("Giriş ücreti başarıyla ödendi! Artık oy kullanabilirsiniz.");
@@ -606,12 +706,31 @@ async function voteForBlockchain(blockchainId) {
   try {
     showLoading("Oy veriliyor...");
     
-    // Oy işlemini gerçekleştir
+    if (TEST_MODE) {
+      console.log("TEST MODU: Oy verme işlemi simüle ediliyor", blockchainId);
+      // Simüle edilmiş oy verme
+      setTimeout(() => {
+        // Seçilen blockchain için oy sayısını artır
+        blockchains = blockchains.map(bc => {
+          if (bc.id == blockchainId) {
+            return {...bc, voteCount: parseInt(bc.voteCount) + 1};
+          }
+          return bc;
+        });
+        
+        updateResults();
+        createBlockchainCards();
+        showSuccessMessage("Test modu: Oyunuz başarıyla kaydedildi!");
+        hideLoading();
+      }, 1000);
+      return;
+    }
+    
+    // Gerçek oy verme kodu...
     await votingContract.methods.vote(blockchainId).send({
       from: userAddress
     });
     
-    // Blockchain verilerini güncelle
     await loadBlockchainData();
     
     showSuccessMessage("Oyunuz başarıyla kaydedildi!");
@@ -707,45 +826,4 @@ function showSuccessMessage(message) {
   
   const main = document.querySelector('main');
   if (main) {
-    const successElement = document.createElement('div');
-    successElement.className = 'success-message';
-    successElement.textContent = message;
-    
-    // Main'in başına ekle
-    main.insertBefore(successElement, main.firstChild);
-    
-    // 5 saniye sonra mesajı kaldır
-    setTimeout(() => {
-      successElement.remove();
-    }, 5000);
-  }
-}
-
-// Cüzdan uyarısı gösteren fonksiyon
-function showWalletWarning() {
-  const main = document.querySelector('main');
-  if (main) {
-    // Mevcut içeriği temizle
-    main.innerHTML = '';
-    
-    // Uyarı mesajını ekle
-    const warningElement = document.createElement('div');
-    warningElement.className = 'wallet-warning';
-    warningElement.innerHTML = `
-      <h3>Ethereum Cüzdanı Gerekli</h3>
-      <p>Bu uygulamayı kullanmak için bir Ethereum cüzdanı gereklidir. Lütfen MetaMask veya başka bir Ethereum cüzdanı yükleyin ve sayfayı yenileyin.</p>
-      <a href="https://metamask.io/download/" target="_blank" class="primary-btn">MetaMask Yükle</a>
-    `;
-    
-    main.appendChild(warningElement);
-  }
-}
-
-// Mesajları temizleyen fonksiyon
-function clearMessages() {
-  const errorMessages = document.querySelectorAll('.error-message');
-  const successMessages = document.querySelectorAll('.success-message');
-  
-  errorMessages.forEach(msg => msg.remove());
-  successMessages.forEach(msg => msg.remove());
-}
+    const successElement
