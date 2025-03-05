@@ -469,16 +469,21 @@ async function checkConnection() {
     
     // userAddress kontrolü
     if (accounts && accounts.length > 0) {
+      // ÖNEMLİ: userAddress'e accounts değerini atayın, accounts dizisinin kendisini değil
       userAddress = accounts;
       console.log("Bağlandı:", userAddress);
       
       // Adresin kısaltılmış halini göster
-      const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
-      
-      // Eğer wallet-address ID'li bir element varsa güncelle
-      const walletAddressElement = document.getElementById('wallet-address');
-      if (walletAddressElement) {
-        walletAddressElement.textContent = shortAddress;
+      if (typeof userAddress === 'string') {
+        const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
+        
+        // Eğer wallet-address ID'li bir element varsa güncelle
+        const walletAddressElement = document.getElementById('wallet-address');
+        if (walletAddressElement) {
+          walletAddressElement.textContent = shortAddress;
+        }
+      } else {
+        console.error("userAddress bir string değil:", userAddress);
       }
       
       return true;
@@ -605,16 +610,23 @@ newButton.addEventListener('click', async () => {
         return;
       }
       
-      // userAddress'i güncelle ve localStorage'a kaydet
+      // ÖNEMLİ: userAddress'e accounts değerini atayın, accounts dizisinin kendisini değil
       userAddress = accounts;
+      console.log("userAddress güncellendi:", userAddress);
+      
+      // localStorage'a kaydet
       localStorage.setItem('userAddress', userAddress);
-      console.log("userAddress güncellendi ve kaydedildi:", userAddress);
+      console.log("userAddress localStorage'a kaydedildi");
       
       // Adresin kısaltılmış halini göster
-      const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
-      const walletAddressElement = document.getElementById('wallet-address');
-      if (walletAddressElement) {
-        walletAddressElement.textContent = shortAddress;
+      if (typeof userAddress === 'string') {
+        const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
+        const walletAddressElement = document.getElementById('wallet-address');
+        if (walletAddressElement) {
+          walletAddressElement.textContent = shortAddress;
+        }
+      } else {
+        console.error("userAddress bir string değil:", userAddress);
       }
       
       // Bağlantı başarılı ise uygulamayı başlat
@@ -632,8 +644,7 @@ newButton.addEventListener('click', async () => {
     console.error("Cüzdan bağlantısı genel hata:", error);
     showErrorMessage("Cüzdan bağlantısı sırasında beklenmeyen bir hata oluştu.");
   }
-}
-  
+});
 
 // Doğru ağa bağlı olduğunu kontrol eden fonksiyon
 async function checkNetwork() {
