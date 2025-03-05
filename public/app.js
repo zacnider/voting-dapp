@@ -505,8 +505,10 @@ async function checkUserPaymentStatus() {
     console.log("Kullanıcı ödeme durumu kontrol ediliyor...");
     
     if (TEST_MODE) {
-      // Test modunda ödeme durumunu false olarak döndür
-      return false;
+      // Test modunda ödeme durumunu localStorage'dan kontrol et
+      const testPaid = localStorage.getItem('testPaidFee');
+      console.log("Test modu ödeme durumu:", testPaid);
+      return testPaid === 'true';
     }
     
     if (!userAddress) {
@@ -515,11 +517,34 @@ async function checkUserPaymentStatus() {
     }
     
     // Kontrat üzerinden kullanıcının ödeme yapıp yapmadığını kontrol et
+    console.log("Ödeme kontrolü için kullanılan adres:", userAddress);
+    
+    // Önce localStorage'dan kontrol et (hızlı erişim için)
+    const localStorageKey = `paidFee_${userAddress.toLowerCase()}`;
+    const localStorageValue = localStorage.getItem(localStorageKey);
+    
+    if (localStorageValue === 'true') {
+      console.log("Ödeme durumu localStorage'dan alındı: true");
+      return true;
+    }
+    
+    // LocalStorage'da yoksa kontrat üzerinden kontrol et
     const hasPaid = await votingContract.methods.hasPaid(userAddress).call();
+    console.log("Kontrat üzerinden ödeme durumu:", hasPaid);
+    
+    // Ödeme durumunu localStorage'a kaydet
+    if (hasPaid) {
+      localStorage.setItem(localStorageKey, 'true');
+    }
+    
     return hasPaid;
   } catch (error) {
-    console.error("Kontrat çağrısı hatası:", error);
-    return false;
+    console.error("Ödeme durumu kontrolü sırasında hata:", error);
+    
+    // Hata durumunda localStorage'dan kontrol et
+    const localPaid = localStorage.getItem(`paidFee_${userAddress.toLowerCase()}`);
+    console.log("Hata durumunda localStorage'dan ödeme durumu:", localPaid);
+    return localPaid === 'true';
   }
 }
 
@@ -626,51 +651,88 @@ async function checkNetwork() {
   }
 }
 
+async function disconnectWallet() {
+  try {
+    console.log("Cüzdan bağlantısı kesiliyor...");
+    
+    // Eski adres bilgisini saklayalım (localStorage temizleme için)
+    const oldAddress = userAddress ? userAddress.toLowerCase() : '';
+    
+    // userAddress'i sıfırla
+    userAddress = '';
+    
+    // Kullanıcı durumunu sıfırla
+    hasUserPaidFee = false;
+    
+    // localStorage'dan bağlantı bilgilerini temizle
+    localStorage.removeItem('walletConnected');
+    
+    // Eski adrese ait ödeme bilgisini temizleme
+    if (oldAddress) {
+      localStorage.removeItem(`paidFee_${oldAddress}`);
+    }
+    
+    // UI'ı güncelle
+    updateUI();
+    
+    // Bağlantı kesme başarılı mesajını göster
+    showSuccessMessage("Cüzdan bağlantısı başarıyla kesildi.");
+    
+    // Bağlantı butonunu göster
+    showConnectButton();
+    
+    // Disconnect butonunu gizle
+    document.getElementById('disconnect-wallet').style.display = 'none';
+    
+    // Cüzdan adresini temizle
+    const walletAddressElement = document.getElementById('wallet-address');
+    if (walletAddressElement) {
+      walletAddressElement.textContent = '';
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Cüzdan bağlantısını kesme hatası:", error);
+    showErrorMessage("Cüzdan bağlantısını keserken bir hata oluştu.");
+    return false;
+  }
+}
+
 
 // Blockchain verilerini yükleyen fonksiyon
 async function loadBlockchainData() {
   try {
-    showLoading("Blockchain verileri yükleniyor...");
+    console.log("Blockchain verileri yükleniyor...");
     
     if (TEST_MODE) {
-      // Test modunda örnek veriler kullan
-      console.log("TEST MODU: Örnek blockchain verileri yükleniyor");
-      blockchains = [
-        { id: 1, name: "Monad", symbol: "MON", voteCount: 120 },
-        { id: 2, name: "Ethereum", symbol: "ETH", voteCount: 85 },
-        { id: 3, name: "Bitcoin", symbol: "BTC", voteCount: 75 },
-        { id: 4, name: "Binance Smart Chain", symbol: "BSC", voteCount: 60 },
-        { id: 5, name: "Solana", symbol: "SOL", voteCount: 45 },
-        { id: 6, name: "Avalanche", symbol: "AVAX", voteCount: 40 },
-        { id: 7, name: "Polkadot", symbol: "DOT", voteCount: 35 },
-        { id: 8, name: "Cardano", symbol: "ADA", voteCount: 30 },
-        { id: 9, name: "Polygon", symbol: "MATIC", voteCount: 25 },
-        { id: 10, name: "Cosmos", symbol: "ATOM", voteCount: 20 }
-      ];
-      
-      // Sonuçları güncelle
-      updateResults();
-      hideLoading();
+      // Test verileri...
       return;
     }
     
-    // Gerçek kontrat çağrısı:
-    try {
-      blockchains = await votingContract.methods.getAllBlockchains().call();
-      console.log("Kontrat üzerinden alınan blockchain zincirleri:", blockchains);
-    } catch (error) {
-      console.error("Blockchain verileri alınamadı:", error);
-      blockchains = [];
+    // Blockchain sayısını al
+    const blockchainCount = await votingContract.methods.getBlockchainCount().call();
+    console.log("Blockchain sayısı:", blockchainCount);
+    
+    // Tüm blockchain'leri al
+    blockchains = [];
+    for (let i = 0; i < blockchainCount; i++) {
+      const blockchain = await votingContract.methods.blockchains(i).call();
+      blockchains.push({
+        id: blockchain.id,
+        name: blockchain.name,
+        voteCount: blockchain.voteCount
+      });
     }
     
-    // Sonuçları güncelle
-    updateResults();
+    console.log("Yüklenen blockchain'ler:", blockchains);
     
-    hideLoading();
+    // Blockchain verileri yüklendikten sonra ödeme durumunu kontrol et
+    hasUserPaidFee = await checkUserPaymentStatus();
+    console.log("Kullanıcı ödeme durumu güncellendi:", hasUserPaidFee);
+    
   } catch (error) {
-    hideLoading();
-    console.error("Blockchain verileri yüklenirken hata:", error);
-    showErrorMessage("Blockchain verileri yüklenirken bir hata oluştu.");
+    console.error("Blockchain verilerini yükleme hatası:", error);
+    showErrorMessage("Blockchain verilerini yüklerken bir hata oluştu. Lütfen sayfayı yenileyin ve tekrar deneyin.");
   }
 }
 
@@ -738,11 +800,24 @@ function setupEntryFeeButton() {
           console.log("TEST MODU: Ödeme işlemi simüle ediliyor");
           // Simüle edilmiş ödeme
           setTimeout(() => {
+            // Test modu için localStorage'a kaydet
+            localStorage.setItem('testPaidFee', 'true');
             hasUserPaidFee = true;
             updateUI();
             showSuccessMessage("Test modu: Giriş ücreti başarıyla ödendi! Artık oy kullanabilirsiniz.");
             hideLoading();
           }, 1500);
+          return;
+        }
+        
+        // Önce kullanıcının zaten ödeme yapıp yapmadığını kontrol et
+        const alreadyPaid = await checkUserPaymentStatus();
+        if (alreadyPaid) {
+          console.log("Kullanıcı zaten ödeme yapmış.");
+          hasUserPaidFee = true;
+          updateUI();
+          showSuccessMessage("Zaten giriş ücreti ödenmiş! Oy kullanabilirsiniz.");
+          hideLoading();
           return;
         }
         
@@ -759,7 +834,10 @@ function setupEntryFeeButton() {
           value: entryFee
         });
         
+        // Ödeme durumunu güncelle ve localStorage'a kaydet
         hasUserPaidFee = true;
+        localStorage.setItem(`paidFee_${userAddress.toLowerCase()}`, 'true');
+        
         updateUI();
         
         showSuccessMessage("Giriş ücreti başarıyla ödendi! Artık oy kullanabilirsiniz.");
@@ -767,12 +845,21 @@ function setupEntryFeeButton() {
       } catch (error) {
         hideLoading();
         console.error("Ödeme işlemi sırasında hata:", error);
-        showErrorMessage("Ödeme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.");
+        
+        // Hata mesajını daha detaylı analiz et
+        if (error.message && error.message.includes("already paid")) {
+          // Zaten ödeme yapılmış
+          hasUserPaidFee = true;
+          localStorage.setItem(`paidFee_${userAddress.toLowerCase()}`, 'true');
+          updateUI();
+          showSuccessMessage("Zaten giriş ücreti ödenmiş! Oy kullanabilirsiniz.");
+        } else {
+          showErrorMessage("Ödeme işlemi sırasında bir hata oluştu: " + error.message);
+        }
       }
     });
   }
 }
-
 // Blockchain kartlarını oluşturan fonksiyon
 function createBlockchainCards() {
   const container = document.getElementById('blockchains-container');
