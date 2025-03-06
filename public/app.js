@@ -337,7 +337,45 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
                 loadSampleData();
             }
         }
+function updateProgressBar(xpValue) {
+    const progressBar = document.getElementById('xpProgressBar');
+    if (!progressBar) {
+        console.log("Progress bar element not found in DOM");
+        return; // Element yoksa fonksiyondan çık
+    }
+    
+    try {
+        // XP değerini sayıya dönüştür (BigNumber olabilir)
+        let xpNumber;
+        if (typeof xpValue.toNumber === 'function') {
+            xpNumber = xpValue.toNumber();
+        } else {
+            xpNumber = Number(xpValue);
+        }
         
+        // Yüzde hesapla (0-100 arası)
+        const maxXP = 1000; // Maksimum XP değeri
+        const xpPercentage = Math.min(100, Math.max(0, (xpNumber / maxXP) * 100));
+        
+        // İlerleme çubuğunu güncelle
+        progressBar.style.width = `${xpPercentage}%`;
+        progressBar.setAttribute('aria-valuenow', xpPercentage);
+        
+        // Opsiyonel: Renk değişimi
+        if (xpPercentage < 30) {
+            progressBar.className = 'progress-bar bg-danger';
+        } else if (xpPercentage < 70) {
+            progressBar.className = 'progress-bar bg-warning';
+        } else {
+            progressBar.className = 'progress-bar bg-success';
+        }
+        
+    } catch (error) {
+        console.error("Error updating progress bar:", error);
+    }
+}
+
+
         function loadSampleData() {
             // Örnek blockchain verileri
             const sampleBlockchains = [
