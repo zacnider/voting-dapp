@@ -283,169 +283,60 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
                     
                     
                     // Sayfa yüklendiğinde çalışacak kodlar
-                    // Sayfa yüklendiğinde çalıştırılacak güvenli bir fonksiyon
-document.addEventListener('DOMContentLoaded', function() {
-    console.log("DOM fully loaded");
-    
-    // Leaderboard body elementini kontrol et
-    const leaderboardBody = document.getElementById('leaderboardBody');
-    console.log("Leaderboard body element:", leaderboardBody);
-    
-    // Card-body elementini kontrol et
-    const cardBody = document.querySelector('.card-body');
-    console.log("Card body element:", cardBody);
-    
-    // Tüm card-body elementlerini listele
-    const allCardBodies = document.querySelectorAll('.card-body');
-    console.log("All card body elements:", allCardBodies);
-    
-    // DOM yapısını kontrol et
-    console.log("DOM structure:", document.body.innerHTML);
-});
-
-async function renderLeaderboard() {
-    try {
-        console.log("Rendering leaderboard...");
+                    document.addEventListener('DOMContentLoaded', () => {
+                        // Dark mode kontrolü
+                        if (darkMode) {
+                            document.body.classList.add('dark-theme');
+                            document.getElementById('themeToggle').innerHTML = '<i class="fas fa-sun"></i>';
+                        }
+                        
+                        // Tab geçişleri
+                        document.querySelectorAll('.tab').forEach(tab => {
+                            tab.addEventListener('click', () => {
+                                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                                tab.classList.add('active');
+                                
+                                const tabName = tab.getAttribute('data-tab');
+                                document.querySelectorAll('.tab-content').forEach(content => {
+                                    content.style.display = 'none';
+                                });
+                                document.getElementById(`${tabName}Tab`).style.display = 'block';
+                            });
+                        });
+                        
+                        // Sıralama değişikliği
+                        document.getElementById('sortSelect').addEventListener('change', sortBlockchains);
+            
+            // Arama işlevi
+            document.getElementById('searchInput').addEventListener('input', filterBlockchains);
+            
+            // Tema değiştirme
+            document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+            
+            // Bildirimi kapatma
+            document.getElementById('closeNotification').addEventListener('click', hideNotification);
+            
+            // Cüzdan bağlama
+            document.getElementById('connectWallet').addEventListener('click', connectWallet);
+            
+            // Sayfa yüklendiğinde blockchainleri getir (bağlantı olmasa bile görüntüleme için)
+            initializeApp();
+        });
         
-        // Önce leaderboard elementini kontrol et
-        const leaderboardBody = document.getElementById('leaderboardBody');
-        if (!leaderboardBody) {
-            console.error("Leaderboard body element not found!");
-            // Element yoksa, üst elementi kontrol et ve oluştur
-            const leaderboardTab = document.getElementById('leaderboard');
-            if (leaderboardTab) {
-                console.log("Leaderboard tab found, creating missing elements...");
-                createLeaderboardStructure(leaderboardTab);
-                return renderLeaderboard(); // Yeniden dene
-            } else {
-                console.error("Leaderboard tab not found either!");
-                return;
-            }
-        }
-        
-        // Mevcut içeriği temizle
-        leaderboardBody.innerHTML = '';
-        
-        // Örnek veriler (gerçek veriler için contract.getLeaderboard() kullanın)
-        const sampleUsers = [
-            { address: "0x1234...5678", xp: 2500, level: 25 },
-            { address: "0x8765...4321", xp: 1800, level: 18 },
-            { address: "0x9876...5432", xp: 1600, level: 16 },
-            { address: "0x5432...9876", xp: 1400, level: 14 },
-            { address: "0x4321...8765", xp: 1200, level: 12 },
-            { address: "0x3456...7890", xp: 1000, level: 10 },
-            { address: "0x7890...3456", xp: 800, level: 8 },
-            { address: "0x2345...6789", xp: 600, level: 6 },
-            { address: "0x6789...2345", xp: 400, level: 4 },
-            { address: "0x5678...1234", xp: 200, level: 2 }
-        ];
-        
-        // Kullanıcı verilerini tabloya ekle
-        sampleUsers.forEach((user, index) => {
+        async function initializeApp() {
             try {
-                const row = document.createElement('tr');
-                
-                const rankClass = index < 3 ? `rank-${index + 1}` : 'rank-other';
-                
-                row.innerHTML = `
-                    <td>
-                        <div class="rank ${rankClass}">${index + 1}</div>
-                    </td>
-                    <td>
-                        <div class="user-row">
-                            <div class="user-avatar">${user.address.charAt(2).toUpperCase()}</div>
-                            <div class="user-details">
-                                <div class="user-name">User ${index + 1}</div>
-                                <div class="user-address-small">${user.address}</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td class="xp-col">${user.xp} XP</td>
-                    <td>Level ${user.level}</td>
-                `;
-                
-                leaderboardBody.appendChild(row);
-                
-            } catch (error) {
-                console.error("Error creating leaderboard row:", error);
-            }
-        });
-        
-        console.log("Leaderboard rendering complete!");
-        
-    } catch (error) {
-        console.error("Error rendering leaderboard:", error);
-    }
-}
-
-// Leaderboard yapısını oluştur
-function createLeaderboardStructure(parentElement) {
-    const cardHTML = `
-        <div class="card mt-4">
-            <div class="card-header">
-                <h5>Top Users</h5>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Rank</th>
-                                <th>User</th>
-                                <th>XP</th>
-                                <th>Level</th>
-                            </tr>
-                        </thead>
-                        <tbody id="leaderboardBody">
-                            <!-- Leaderboard rows will be added here -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    parentElement.innerHTML = cardHTML;
-}
-
-        
-        // Asenkron işlemleri daha güvenli hale getirme
-async function initializeApp() {
-    try {
-        console.log("Initializing application...");
-        
-        // Wallet bağlantısı ve diğer asenkron işlemler için bir timeout ekleyin
-        const connectButton = document.getElementById('connectWallet');
-        if (connectButton) {
-            connectButton.addEventListener('click', async function() {
-                try {
+                // MetaMask veya diğer cüzdanlar otomatik bağlantı sağlayabilir
+                if (window.ethereum && window.ethereum.selectedAddress) {
                     await connectWallet();
-                } catch (error) {
-                    console.error("Connection error:", error);
-                    showNotification('Connection Error', 'Failed to connect wallet.', 'error');
+                } else {
+                    // Cüzdan bağlı değilse örnek verilerle başlat
+                    loadSampleData();
                 }
-            });
+            } catch (error) {
+                console.error("Error initializing app:", error);
+                loadSampleData();
+            }
         }
-        
-        // Tab değişikliğini dinle
-        document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tab => {
-            tab.addEventListener('shown.bs.tab', async function (event) {
-                try {
-                    // Leaderboard tab'ına geçildiğinde render et
-                    if (event.target.getAttribute('data-bs-target') === '#leaderboard') {
-                        await renderLeaderboard();
-                    }
-                } catch (error) {
-                    console.error("Tab change error:", error);
-                }
-            });
-        });
-        
-        console.log("App initialization complete");
-    } catch (error) {
-        console.error("App initialization error:", error);
-    }
-}
         
         function loadSampleData() {
             // Örnek blockchain verileri
