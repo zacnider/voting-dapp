@@ -429,22 +429,7 @@ async function initializeApp() {
       // Kullanıcı ödeme yapmadıysa, diğer işlemleri yapma
      const hasUserPaid = await checkPaymentStatus();  // hasPaid yerine hasUserPaid kullanıldı
     await updatePaymentUI(hasUserPaid);
-
-	    async function checkPaymentStatus() {
-  try {
-    if (!web3 || !votingContract || !currentAccount) {
-      console.warn("Web3, voting contract veya hesap henüz hazır değil");
-      return false;
-    }
-    
-    // hasUserPaid metodunu çağır
-    return await votingContract.methods.hasUserPaid(currentAccount).call();
-  } catch (error) {
-    console.error("Ödeme durumu kontrol edilirken hata:", error);
-    return false;
-  }
-}
-    
+	      
     // Kullanıcının oy kullanıp kullanmadığını kontrol et
      try {
       const hasVoted = await checkUserVoted();
@@ -469,6 +454,22 @@ async function initializeApp() {
   }
 }
 
+  async function checkPaymentStatus() {
+  try {
+    if (!web3 || !votingContract || !currentAccount) {
+      console.warn("Web3, voting contract veya hesap henüz hazır değil");
+      return false;
+    }
+    
+    // hasUserPaid metodunu çağır
+    return await votingContract.methods.hasUserPaid(currentAccount).call();
+  } catch (error) {
+    console.error("Ödeme durumu kontrol edilirken hata:", error);
+    return false;
+  }
+}
+
+	
 async function setupWeb3() {
   if (window.ethereum) {
     try {
