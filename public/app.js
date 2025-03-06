@@ -454,7 +454,7 @@ async function initializeApp() {
     setupDisconnectButton();
   }
 }
-
+}
   async function checkPaymentStatus() {
   try {
     if (!web3 || !votingContract || !currentAccount) {
