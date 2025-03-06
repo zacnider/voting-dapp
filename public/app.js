@@ -524,15 +524,15 @@ async function switchToMonadTestnet() {
                 await window.ethereum.request({
                     method: 'wallet_addEthereumChain',
                     params: [{
-                        chainId: '0x98A',
+                        chainId: '10143',
                         chainName: 'Monad Testnet',
                         nativeCurrency: {
                             name: 'Monad',
-                            symbol: 'MONAD',
+                            symbol: 'MON',
                             decimals: 18
                         },
-                        rpcUrls: ['https://rpc.monad.xyz/testnet'],
-                        blockExplorerUrls: ['https://explorer.monad.xyz/']
+                        rpcUrls: ['https://testnet-rpc.monad.xyz/'],
+                        blockExplorerUrls: ['https://testnet.monadexplorer.com/']
                     }]
                 });
                 console.log("Successfully added Monad Testnet");
