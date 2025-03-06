@@ -322,20 +322,43 @@ document.addEventListener('DOMContentLoaded', function() {
             initializeApp();
         });
         
-        async function initializeApp() {
-            try {
-                // MetaMask veya diğer cüzdanlar otomatik bağlantı sağlayabilir
-                if (window.ethereum && window.ethereum.selectedAddress) {
+        // Asenkron işlemleri daha güvenli hale getirme
+async function initializeApp() {
+    try {
+        console.log("Initializing application...");
+        
+        // Wallet bağlantısı ve diğer asenkron işlemler için bir timeout ekleyin
+        const connectButton = document.getElementById('connectWallet');
+        if (connectButton) {
+            connectButton.addEventListener('click', async function() {
+                try {
                     await connectWallet();
-                } else {
-                    // Cüzdan bağlı değilse örnek verilerle başlat
-                    loadSampleData();
+                } catch (error) {
+                    console.error("Connection error:", error);
+                    showNotification('Connection Error', 'Failed to connect wallet.', 'error');
                 }
-            } catch (error) {
-                console.error("Error initializing app:", error);
-                loadSampleData();
-            }
+            });
         }
+        
+        // Tab değişikliğini dinle
+        document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tab => {
+            tab.addEventListener('shown.bs.tab', async function (event) {
+                try {
+                    // Leaderboard tab'ına geçildiğinde render et
+                    if (event.target.getAttribute('data-bs-target') === '#leaderboard') {
+                        await renderLeaderboard();
+                    }
+                } catch (error) {
+                    console.error("Tab change error:", error);
+                }
+            });
+        });
+        
+        console.log("App initialization complete");
+    } catch (error) {
+        console.error("App initialization error:", error);
+    }
+}
         
         function loadSampleData() {
             // Örnek blockchain verileri
