@@ -486,40 +486,98 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
                 showNotification('Wallet Not Found', 'Please install MetaMask or another Ethereum wallet!', 'warning');
             }
         }
+
+// Monad Testnet'e geçiş yapma fonksiyonu
+async function switchToMonadTestnet() {
+    try {
+        console.log("Attempting to switch to Monad Testnet...");
         
-        async function updateUserStats() {
-            if (!isConnected) return;
-            
+        // Önce ağın zaten ekli olup olmadığını kontrol et
+        await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x98A' }], // 2442 decimal = 0x98A hex
+        });
+        console.log("Successfully switched to Monad Testnet");
+        
+    } catch (switchError) {
+        console.log("Switch error:", switchError);
+        
+        // Ağ ekli değilse ekle (4902 error code)
+        if (switchError.code === 4902) {
             try {
-                const remainingVotes = await contract.getRemainingVotes();
-                const usedVotes = 20 - remainingVotes.toNumber();
-                document.getElementById('todayVotes').textContent = `${usedVotes}/20`;
+                console.log("Adding Monad Testnet to wallet...");
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [{
+                        chainId: '0x98A',
+                        chainName: 'Monad Testnet',
+                        nativeCurrency: {
+                            name: 'Monad',
+                            symbol: 'MONAD',
+                            decimals: 18
+                        },
+                        rpcUrls: ['https://rpc.monad.xyz/testnet'],
+                        blockExplorerUrls: ['https://explorer.monad.xyz/']
+                    }]
+                });
+                console.log("Successfully added Monad Testnet");
                 
-                const address = await signer.getAddress();
-                const userXP = await contract.getUserXP(address);
-                const xp = userXP.toNumber();
-                document.getElementById('totalXP').textContent = xp;
-                document.getElementById('currentXP').textContent = `${xp} XP`;
-                
-                // Level hesaplama (her 100 XP'de bir level)
-                const level = Math.floor(xp / 100);
-                const nextLevelXP = (level + 1) * 100;
-                const progress = (xp % 100) / 100 * 100;
-                
-                document.getElementById('userLevel').innerHTML = `<i class="fas fa-star"></i> Level ${level}`;
-                document.getElementById('nextLevelXP').textContent = `Next level: ${nextLevelXP} XP`;
-                document.getElementById('xpProgress').style.width = `${progress}%`;
-                
-                // Reward tab'daki ilerleme çubuklarını güncelle
-                const rewardBars = document.querySelectorAll('#rewardsTab .vote-progress');
-                rewardBars.style.width = Math.min(xp / 500 * 100, 100) + '%';
-                rewardBars.style.width = Math.min(xp / 1000 * 100, 100) + '%';
-                rewardBars.style.width = Math.min(xp / 2500 * 100, 100) + '%';
-                
-            } catch (error) {
-                console.error("Error updating user stats:", error);
+            } catch (addError) {
+                console.error("Error adding Monad Testnet:", addError);
+                showNotification('Network Error', 'Failed to add Monad Testnet. Please add it manually.', 'warning');
+                // Kritik hata değil, devam et
             }
+        } else if (switchError.code === 4001) {
+            // Kullanıcı reddettiğinde
+            console.log("User rejected the request to switch networks");
+            showNotification('Network Switch Rejected', 'You need to switch to Monad Testnet to use this application.', 'warning');
+        } else {
+            console.error("Unknown error switching networks:", switchError);
+            showNotification('Network Error', 'Could not switch to Monad Testnet.', 'warning');
         }
+    }
+}
+
+// Kullanıcı istatistiklerini güncelleme fonksiyonu
+async function updateUserStats() {
+    try {
+        if (!isConnected || !contract) {
+            console.log("Not connected or contract not initialized");
+            return;
+        }
+
+        // Kalan oyları al
+        const remainingVotes = await contract.getRemainingVotes();
+        const remainingVotesElement = document.getElementById('remainingVotes');
+        if (remainingVotesElement) {
+            remainingVotesElement.textContent = remainingVotes.toString();
+        }
+        
+        // Kullanıcı XP'sini al
+        const address = await signer.getAddress();
+        const userXP = await contract.getUserXP(address);
+        const userXPElement = document.getElementById('userXP');
+        if (userXPElement) {
+            userXPElement.textContent = userXP.toString();
+        }
+        
+        // İlerleme çubuğunu güncelle - HATA BURADA
+        const progressBar = document.getElementById('xpProgressBar');
+        if (progressBar) {
+            // İlerleme çubuğunu güncelle
+            const xpPercentage = Math.min(100, (userXP.toNumber() / 1000) * 100);
+            progressBar.style.width = `${xpPercentage}%`;
+            progressBar.setAttribute('aria-valuenow', xpPercentage);
+        } else {
+            console.log("Progress bar element not found");
+        }
+        
+        console.log("User stats updated successfully");
+    } catch (error) {
+        console.error("Error updating user stats:", error);
+        // Kritik olmayan hatayı göster ama uygulamayı çalıştırmaya devam et
+    }
+}
         
         async function loadBlockchains() {
             if (!isConnected) return;
