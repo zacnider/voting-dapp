@@ -273,8 +273,6 @@ let web3;
 let votingContract;
 let userAddress = ''; // String olarak tanımla
 let candidates = []; // Adaylar listesi
-const TEST_MODE = false; // Test modu kapalı
-
 
 
 // Sayfa yüklendiğinde çalışacak kod
