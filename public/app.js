@@ -576,21 +576,12 @@ async function updateUserStats() {
             userXPElement.textContent = userXP.toString();
         }
         
-        // İlerleme çubuğunu güncelle - HATA BURADA
-        const progressBar = document.getElementById('xpProgressBar');
-        if (progressBar) {
-            // İlerleme çubuğunu güncelle
-            const xpPercentage = Math.min(100, (userXP.toNumber() / 1000) * 100);
-            progressBar.style.width = `${xpPercentage}%`;
-            progressBar.setAttribute('aria-valuenow', xpPercentage);
-        } else {
-            console.log("Progress bar element not found");
-        }
+        // İlerleme çubuğunu güvenli bir şekilde güncelle
+        updateProgressBar(userXP);
         
         console.log("User stats updated successfully");
     } catch (error) {
         console.error("Error updating user stats:", error);
-        // Kritik olmayan hatayı göster ama uygulamayı çalıştırmaya devam et
     }
 }
         
