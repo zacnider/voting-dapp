@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain Popularity Vote</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Blockchain Popularity Vote</h1>
+        <div id="wallet-section">
+            <div id="wallet-info">
+                <span id="wallet-address">Not connected</span>
+            </div>
+            <button id="connect-wallet" class="primary-btn">Connect Wallet</button>
+            <button id="disconnect-wallet" class="btn btn-danger" style="display: none;">Disconnect</button>
+        </div>
+    </header>
+    
+    <main>
+        <!-- Bağlantı Bölümü -->
+        <section id="connect-section">
+            <div class="card">
+                <h2>Welcome to Blockchain Voting</h2>
+                <p>Connect your wallet to participate in the blockchain popularity vote.</p>
+                <button id="connect-wallet-main" class="primary-btn">Connect Wallet</button>
+            </div>
+        </section>
+        
+        <!-- Uygulama Bölümü -->
+        <section id="app-section" style="display: none;">
+            <!-- Mesaj Alanı -->
+            <div id="message" class="message" style="display: none;"></div>
+            
+            <!-- Ödeme Bölümü -->
+            <section id="payment-section" style="display: none;">
+                <div class="card">
+                    <h2>Entry Fee Payment</h2>
+                    <p>To participate in voting, you need to pay a one-time entry fee of <strong><span id="entry-fee">0.2 MON</span></strong>.</p>
+                    <p>After payment, you can vote for your favorite blockchain platform.</p>
+                    <button id="pay-button" class="primary-btn">Pay Entry Fee</button>
+                </div>
+            </section>
+            
+            <!-- Oylama Bölümü -->
+            <section id="voting-section" style="display: none;">
+                <h2>Vote for Your Favorite Blockchain</h2>
+                <p class="info-text">Select your favorite blockchain platform to cast your vote.</p>
+                
+                <div class="blockchain-grid" id="blockchain-container">
+                    <!-- Blockchain kartları burada oluşturulacak -->
+                    <p class="loading-text">Loading blockchains...</p>
+                </div>
+            </section>
+            
+            <!-- Sonuçlar Bölümü -->
+            <section id="results-section">
+                <h2>Current Rankings</h2>
+                <div id="results-container">
+                    <!-- Sonuçlar burada gösterilecek -->
+                    <p class="loading-text">Loading results...</p>
+                </div>
+            </section>
+        </section>
+    </main>
+    
+    <!-- Yükleme Göstergesi -->
+    <div id="loading" style="display: none;" class="loading-overlay">
+        <div class="spinner"></div>
+        <p id="loading-message">Processing...</p>
+    </div>
+    
+    <footer>
+        <p>&copy; 2025 Blockchain Popularity Vote | Powered by Monad</p>
+    </footer>
+
+    <!-- Web3 ve diğer kütüphaneler -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.6.0/dist/web3.min.js"></script>
+    
+    <!-- Uygulama script'i -->
+    <script src="app.js"></script>
+</body>
+</html>
