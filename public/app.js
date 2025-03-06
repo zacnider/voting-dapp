@@ -446,7 +446,7 @@ async function initializeApp() {
 }
     
     // Kullanıcının oy kullanıp kullanmadığını kontrol et
-    try {
+     try {
       const hasVoted = await checkUserVoted();
       console.log("Kullanıcı oy kullanmış mı:", hasVoted);
       
@@ -466,7 +466,6 @@ async function initializeApp() {
     showErrorMessage("Uygulama başlatılırken bir hata oluştu. Lütfen sayfayı yenileyin ve tekrar deneyin.");
     updateWalletInfo();
     setupDisconnectButton();
-
   }
 }
 
