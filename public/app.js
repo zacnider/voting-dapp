@@ -320,7 +320,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Sayfa yüklendiğinde blockchainleri getir (bağlantı olmasa bile görüntüleme için)
             initializeApp();
-        });
+        
         
         // Asenkron işlemleri daha güvenli hale getirme
 async function initializeApp() {
