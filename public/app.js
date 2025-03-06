@@ -410,7 +410,14 @@ async function initializeApp() {
     }
     
     console.log("Cüzdan bağlı, uygulama başlatılıyor...");
+
+  // Web3 ve akıllı kontrat kurulumu
+    await setupWeb3();  // web3 ve votingContract değişkenlerinin ayarlandığı fonksiyon
     
+    if (!web3 || !votingContract) {
+      throw new Error("Web3 veya voting contract kurulumu başarısız oldu");
+    }
+	  
     // Kullanıcının ödeme yapıp yapmadığını kontrol et
     try {
       const hasPaid = await checkUserPayment();
@@ -420,12 +427,23 @@ async function initializeApp() {
       updatePaymentUI(hasPaid);
       
       // Kullanıcı ödeme yapmadıysa, diğer işlemleri yapma
-      if (!hasPaid) {
-        return;
-      }
-    } catch (error) {
-      console.error("Ödeme durumu kontrolü sırasında hata:", error);
+     const hasUserPaid = await checkPaymentStatus();  // hasPaid yerine hasUserPaid kullanıldı
+    await updatePaymentUI(hasUserPaid);
+
+	    async function checkPaymentStatus() {
+  try {
+    if (!web3 || !votingContract || !currentAccount) {
+      console.warn("Web3, voting contract veya hesap henüz hazır değil");
+      return false;
     }
+    
+    // hasUserPaid metodunu çağır
+    return await votingContract.methods.hasUserPaid(currentAccount).call();
+  } catch (error) {
+    console.error("Ödeme durumu kontrol edilirken hata:", error);
+    return false;
+  }
+}
     
     // Kullanıcının oy kullanıp kullanmadığını kontrol et
     try {
@@ -446,8 +464,32 @@ async function initializeApp() {
   } catch (error) {
     console.error("Uygulama başlatma hatası:", error);
     showErrorMessage("Uygulama başlatılırken bir hata oluştu. Lütfen sayfayı yenileyin ve tekrar deneyin.");
+    updateWalletInfo();
+    setupDisconnectButton();
+
   }
 }
+
+async function setupWeb3() {
+  if (window.ethereum) {
+    try {
+      web3 = new Web3(window.ethereum);
+      
+      // Kontrat ABI ve adresini ayarla
+      const contractAddress = "0xYourContractAddress"; // Gerçek kontrat adresinizi buraya yazın
+      votingContract = new web3.eth.Contract(contractABI, contractAddress);
+      
+      return true;
+    } catch (error) {
+      console.error("Web3 kurulumu sırasında hata:", error);
+      return false;
+    }
+  } else {
+    console.warn("Ethereum tarayıcı uzantısı bulunamadı!");
+    return false;
+  }
+}
+	
 
 // Cüzdan bağlantısını kontrol eden fonksiyon
 async function checkConnection() {
@@ -625,13 +667,13 @@ async function payEntryFee() {
 }
 
 // Ödeme durumuna göre UI'ı güncelleyen fonksiyon
-async function updatePaymentUI(hasPaid) {  // async anahtar kelimesi eklendi
+async function updatePaymentUI(hasUserPaid) {  // hasPaid yerine hasUserPaid kullanıldı
   const paymentSection = document.getElementById('payment-section');
   const votingSection = document.getElementById('voting-section');
   
   if (!paymentSection || !votingSection) return;
   
-  if (hasPaid) {
+  if (hasUserPaid) {
     // Kullanıcı ödeme yapmışsa
     paymentSection.style.display = 'none';
     votingSection.style.display = 'block';
@@ -655,7 +697,7 @@ async function updatePaymentUI(hasPaid) {  // async anahtar kelimesi eklendi
     
     // Giriş ücretini göster
     const feeElement = document.getElementById('entry-fee');
-    if (feeElement) {
+    if (feeElement && votingContract) {  // votingContract varlığını kontrol et
       try {
         const entryFee = await votingContract.methods.ENTRY_FEE().call();
         feeElement.textContent = web3.utils.fromWei(entryFee, 'ether') + " ETH";
@@ -663,10 +705,11 @@ async function updatePaymentUI(hasPaid) {  // async anahtar kelimesi eklendi
         console.error("Giriş ücreti alınamadı:", error);
         feeElement.textContent = "Yükleniyor...";
       }
+    } else {
+      if (feeElement) feeElement.textContent = "Yükleniyor...";
     }
   }
 }
-
 // Cüzdan bağlantı butonunu gösteren fonksiyon
 function showConnectButton() {
   const connectButton = document.getElementById('connect-wallet');
