@@ -625,7 +625,7 @@ async function payEntryFee() {
 }
 
 // Ödeme durumuna göre UI'ı güncelleyen fonksiyon
-function updatePaymentUI(hasPaid) {
+async function updatePaymentUI(hasPaid) {  // async anahtar kelimesi eklendi
   const paymentSection = document.getElementById('payment-section');
   const votingSection = document.getElementById('voting-section');
   
