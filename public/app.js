@@ -24,18 +24,19 @@ function getCompatibleEthereumProvider() {
       }
       
       // Web3Modal provider kontrolü
-      if (window.web3Modal && window.web3Modal.cachedProvider) {
-        console.log("Web3Modal cached provider found");
-        try {
-          window.web3Modal.connect().then(provider => {
-            return resolve(provider);
-          }).catch(err => {
-            console.error("Web3Modal connection error:", err);
-          });
-          return;
-        } catch (e) {
-          console.error("Web3Modal error:", e);
-        }
+     if (window.web3Modal && window.web3Modal.cachedProvider) {
+  console.log("Web3Modal cached provider found");
+  try {
+    window.web3Modal.connect().then(provider => {
+      return resolve(provider);
+    }).catch(err => {
+      console.error("Web3Modal connection error:", err);
+    });
+    return;
+  } catch (e) {
+    console.error("Web3Modal error:", e);
+  }
+} 
       
       
       // MetaMask'in eski provider'ını kontrol et
