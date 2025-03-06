@@ -1232,4 +1232,4 @@ function resetUI() {
   currentAccount = null;
   web3 = null;
   votingContract = null;
-}
+};
