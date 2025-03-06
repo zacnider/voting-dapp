@@ -422,71 +422,86 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
             });
         }
         
-        async function connectWallet() {
-            if (window.ethereum) {
-                try {
-                    document.getElementById('connectButtonText').textContent = 'Connecting...';
-                    
-                    await window.ethereum.request({ method: 'eth_requestAccounts' });
-                    provider = new ethers.providers.Web3Provider(window.ethereum);
-                    signer = provider.getSigner();
-                    contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-                    
-                    const address = await signer.getAddress();
-                    document.getElementById('userAddress').textContent = shortenAddress(address);
-                    document.getElementById('connectButtonText').textContent = 'Connected';
-                    document.getElementById('connectWallet').disabled = true;
-                    
-                    isConnected = true;
-                    
-                    // Monad Testnet'e geçiş yap
-                    try {
-                        await window.ethereum.request({
-                            method: 'wallet_switchEthereumChain',
-                            params: [{ chainId: '0x98A' }], // 2442 decimal = 0x98A hex
-                        });
-                    } catch (switchError) {
-                        // Ağ ekli değilse ekle
-                        if (switchError.code === 4902) {
-                            try {
-                                await window.ethereum.request({
-                                    method: 'wallet_addEthereumChain',
-                                    params: [
-                                        {
-                                            chainId: '10143',
-                                            chainName: 'Monad Testnet',
-                                            nativeCurrency: {
-                                                name: 'Monad',
-                                                symbol: 'MON',
-                                                decimals: 18,
-                                            },
-                                            rpcUrls: ['https://testnet-rpc.monad.xyz/'],
-                                            blockExplorerUrls: ['https://testnet.monadexplorer.com/'],
-                                        },
-                                    ],
-                                });
-                            } catch (addError) {
-                                console.error('Error adding Monad Testnet:', addError);
-                                showNotification('Error', 'Could not add Monad Testnet to your wallet.', 'error');
-                            }
-                        }
-                    }
-                    
-                    await updateUserStats();
-                    await loadBlockchains();
-                    
-                    showNotification('Connected!', 'Your wallet has been successfully connected.', 'success');
-                    
-                } catch (error) {
-                    console.error("User rejected connection:", error);
-                    document.getElementById('connectButtonText').textContent = 'Connect Wallet';
-                    showNotification('Connection Failed', 'Could not connect to your wallet.', 'error');
-                }
-            } else {
-                showNotification('Wallet Not Found', 'Please install MetaMask or another Ethereum wallet!', 'warning');
-            }
-        }
+       async function connectWallet() {
+    if (!window.ethereum) {
+        showNotification('Wallet Not Found', 'Please install MetaMask or another Ethereum wallet!', 'warning');
+        return;
+    }
 
+    try {
+        document.getElementById('connectButtonText').textContent = 'Connecting...';
+        
+        // MetaMask bağlantısı
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+        
+        // Kontrat bağlantısı
+        try {
+            contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+        } catch (contractError) {
+            console.error("Contract initialization error:", contractError);
+            document.getElementById('connectButtonText').textContent = 'Connect Wallet';
+            showNotification('Contract Error', 'Could not initialize the smart contract.', 'error');
+            return;
+        }
+        
+        // Kullanıcı adresi
+        const address = await signer.getAddress();
+        const userAddressElement = document.getElementById('userAddress');
+        if (userAddressElement) {
+            userAddressElement.textContent = shortenAddress(address);
+        }
+        
+        // UI güncelle
+        const connectButton = document.getElementById('connectWallet');
+        const connectButtonTextElement = document.getElementById('connectButtonText');
+        
+        if (connectButtonTextElement) {
+            connectButtonTextElement.textContent = 'Connected';
+        }
+        
+        if (connectButton) {
+            connectButton.disabled = true;
+        }
+        
+        isConnected = true;
+        
+        // Monad Testnet'e geçiş yap - hatayı yutarak devam et
+        try {
+            await switchToMonadTestnet();
+        } catch (networkError) {
+            console.error("Network switching error:", networkError);
+            // Devam et, kritik değil
+        }
+        
+        // Kullanıcı istatistiklerini güncelle
+        try {
+            await updateUserStats();
+        } catch (statsError) {
+            console.error("Error updating user stats:", statsError);
+            // Devam et, kritik değil
+        }
+        
+        // Blokzincirleri yükle
+        try {
+            await loadBlockchains();
+        } catch (loadError) {
+            console.error("Error loading blockchains:", loadError);
+            showNotification('Data Error', 'Could not load blockchain data.', 'warning');
+        }
+        
+        showNotification('Connected!', 'Your wallet has been successfully connected.', 'success');
+        
+    } catch (error) {
+        console.error("Connection error:", error);
+        const connectButtonTextElement = document.getElementById('connectButtonText');
+        if (connectButtonTextElement) {
+            connectButtonTextElement.textContent = 'Connect Wallet';
+        }
+        showNotification('Connection Failed', 'Could not connect to your wallet.', 'error');
+    }
+}
 // Monad Testnet'e geçiş yapma fonksiyonu
 async function switchToMonadTestnet() {
     try {
