@@ -872,4 +872,243 @@ function setupDisconnectButton() {
     newButton.addEventListener('click', async () => {
       await disconnectWallet();
     });
+  }
+}
+
+// Cüzdanı ayıran fonksiyon
+async function disconnectWallet() {
+  try {
+    // localStorage'dan bağlantı bilgisini temizle
+    localStorage.removeItem('walletConnected');
+    localStorage.removeItem(`voted_${String(userAddress).toLowerCase()}`);
+    
+    // Global değişkenleri sıfırla
+    userAddress = '';
+    
+    // UI'ı güncelle
+    const walletAddressElement = document.getElementById('wallet-address');
+    if (walletAddressElement) {
+      walletAddressElement.textContent = '';
+    }
+    
+    // Disconnect butonunu gizle
+    const disconnectButton = document.getElementById('disconnect-wallet');
+    if (disconnectButton) {
+      disconnectButton.style.display = 'none';
+    }
+    
+    // Bağlantı butonunu göster
+    showConnectButton();
+    
+    // Aday kartlarını temizle
+    const candidateContainer = document.getElementById('candidate-container');
+    if (candidateContainer) {
+      candidateContainer.innerHTML = '';
+    }
+    
+    // Sonuçları temizle
+    const resultsContainer = document.getElementById('results-container');
+    if (resultsContainer) {
+      resultsContainer.innerHTML = '';
+    }
+    
+    showSuccessMessage("Cüzdan başarıyla ayrıldı.");
+  } catch (error) {
+    console.error("Cüzdan ayrılırken hata:", error);
+    showErrorMessage("Cüzdan ayrılırken bir hata oluştu.");
+  }
+}
+
+// Bağlantı butonunu gösteren fonksiyon
+function showConnectButton() {
+  const connectSection = document.getElementById('connect-section');
+  const appSection = document.getElementById('app-section');
+  
+  if (connectSection) {
+    connectSection.style.display = 'flex';
+  }
+  
+  if (appSection) {
+    appSection.style.display = 'none';
+  }
+  
+  // Bağlantı butonuna event listener ekle
+  const connectButton = document.getElementById('connect-wallet');
+  if (connectButton) {
+    // Önceki event listener'ları temizle
+    const newButton = connectButton.cloneNode(true);
+    connectButton.parentNode.replaceChild(newButton, connectButton);
+    
+    // Yeni event listener ekle
+    newButton.addEventListener('click', async () => {
+      await connectWallet();
+    });
+  }
+}
+
+// Cüzdanı bağlayan fonksiyon
+async function connectWallet() {
+  try {
+    showLoading("Cüzdan bağlanıyor...");
+    
+    if (TEST_MODE) {
+      // Test modu için rastgele bir adres oluştur
+      const testAddress = '0x' + Math.random().toString(16).substring(2, 42);
+      localStorage.setItem('testWalletAddress', testAddress);
+      userAddress = testAddress;
+      
+      console.log("TEST MODU: Test adresi oluşturuldu:", testAddress);
+      hideLoading();
+      
+      // Test modu için uygulamayı başlat
+      await initializeApp();
+      return;
+    }
+    
+    // Modern dapp tarayıcıları için
+    if (window.ethereum) {
+      try {
+        // Kullanıcıdan hesap erişimi iste
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        
+        if (accounts.length === 0) {
+          hideLoading();
+          showErrorMessage("Hesap erişimi reddedildi.");
+          return;
+        }
+        
+        // İlk hesabı kullan
+        userAddress = String(accounts);
+        console.log("Bağlandı, hesap:", userAddress);
+        
+        hideLoading();
+        
+        // Uygulamayı başlat
+        await initializeApp();
+      } catch (error) {
+        hideLoading();
+        console.error("Ethereum hesap erişimi hatası:", error);
+        
+        if (error.code === 4001) {
+          showErrorMessage("Hesap erişimi reddedildi.");
+        } else {
+          showErrorMessage("Cüzdan bağlantısı sırasında bir hata oluştu.");
+        }
+      }
+    }
+    // Legacy dapp tarayıcıları için
+    else if (window.web3) {
+      try {
+        const accounts = await web3.eth.getAccounts();
+        
+        if (accounts.length === 0) {
+          hideLoading();
+          showErrorMessage("Hesap erişimi reddedildi.");
+          return;
+        }
+        
+        userAddress = String(accounts);
+        console.log("Legacy bağlantı, hesap:", userAddress);
+        
+        hideLoading();
+        
+        // Uygulamayı başlat
+        await initializeApp();
+      } catch (error) {
+        hideLoading();
+        console.error("Legacy web3 hesap erişimi hatası:", error);
+        showErrorMessage("Cüzdan bağlantısı sırasında bir hata oluştu.");
+      }
+    }
+    // Web3 sağlayıcısı yok
+    else {
+      hideLoading();
+      showErrorMessage("Web3 uyumlu bir tarayıcı bulunamadı. MetaMask yüklemenizi öneririz.");
+    }
+  } catch (error) {
+    hideLoading();
+    console.error("Cüzdan bağlantısı sırasında hata:", error);
+    showErrorMessage("Cüzdan bağlantısı sırasında bir hata oluştu.");
+  }
+}
+
+// Yükleme göstergesini gösteren fonksiyon
+function showLoading(message = "Yükleniyor...") {
+  const loadingElement = document.getElementById('loading');
+  const loadingMessageElement = document.getElementById('loading-message');
+  
+  if (loadingElement) {
+    loadingElement.style.display = 'flex';
+  }
+  
+  if (loadingMessageElement) {
+    loadingMessageElement.textContent = message;
+  }
+}
+
+// Yükleme göstergesini gizleyen fonksiyon
+function hideLoading() {
+  const loadingElement = document.getElementById('loading');
+  
+  if (loadingElement) {
+    loadingElement.style.display = 'none';
+  }
+}
+
+// Başarı mesajı gösteren fonksiyon
+function showSuccessMessage(message) {
+  const messageElement = document.getElementById('message');
+  
+  if (messageElement) {
+    messageElement.textContent = message;
+    messageElement.className = 'message success';
+    messageElement.style.display = 'block';
+    
+    // 5 saniye sonra mesajı gizle
+    setTimeout(() => {
+      messageElement.style.display = 'none';
+    }, 5000);
+  }
+}
+
+// Hata mesajı gösteren fonksiyon
+function showErrorMessage(message) {
+  const messageElement = document.getElementById('message');
+  
+  if (messageElement) {
+    messageElement.textContent = message;
+    messageElement.className = 'message error';
+    messageElement.style.display = 'block';
+    
+    // 5 saniye sonra mesajı gizle
+    setTimeout(() => {
+      messageElement.style.display = 'none';
+    }, 5000);
+  }
+}
+
+// Sayfa yüklendiğinde uygulamayı başlat
+window.addEventListener('load', async () => {
+  try {
+    await setupWeb3();
+    
+    // localStorage'dan bağlantı durumunu kontrol et
+    if (localStorage.getItem('walletConnected') === 'true') {
+      // Otomatik olarak bağlanmayı dene
+      const isConnected = await checkConnection();
+      
+      if (isConnected) {
+        await initializeApp();
+      } else {
+        showConnectButton();
+      }
+    } else {
+      showConnectButton();
+    }
+  } catch (error) {
+    console.error("Sayfa yüklenirken hata:", error);
+    showErrorMessage("Uygulama başlatılırken bir hata oluştu. Lütfen sayfayı yenileyin.");
+    showConnectButton();
+  }
+});
   
