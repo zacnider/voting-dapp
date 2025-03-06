@@ -302,25 +302,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // DOM yapısını kontrol et
     console.log("DOM structure:", document.body.innerHTML);
 });
-                        
-                        // Sıralama değişikliği
-                        document.getElementById('sortSelect').addEventListener('change', sortBlockchains);
-            
-            // Arama işlevi
-            document.getElementById('searchInput').addEventListener('input', filterBlockchains);
-            
-            // Tema değiştirme
-            document.getElementById('themeToggle').addEventListener('click', toggleTheme);
-            
-            // Bildirimi kapatma
-            document.getElementById('closeNotification').addEventListener('click', hideNotification);
-            
-            // Cüzdan bağlama
-            document.getElementById('connectWallet').addEventListener('click', connectWallet);
-            
-            // Sayfa yüklendiğinde blockchainleri getir (bağlantı olmasa bile görüntüleme için)
-            initializeApp();
-        
+
         
         // Asenkron işlemleri daha güvenli hale getirme
 async function initializeApp() {
