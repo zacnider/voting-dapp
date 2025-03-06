@@ -379,48 +379,71 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
             renderSampleLeaderboard();
         }
         
-        function renderSampleLeaderboard() {
-            const leaderboardBody = document.getElementById('leaderboardBody');
-            leaderboardBody.innerHTML = '';
+       function renderSampleLeaderboard() {
+    console.log("Rendering leaderboard...");
+    
+    const leaderboardBody = document.getElementById('leaderboardBody');
+    
+    // Leaderboard body elementini kontrol et
+    if (!leaderboardBody) {
+        console.error("Leaderboard body element not found!");
+        return;
+    }
+    
+    // Mevcut içeriği temizle
+    leaderboardBody.innerHTML = '';
+    
+    // Örnek kullanıcı verileri
+    const sampleUsers = [
+        { address: "0x1234...5678", xp: 2500, level: 25 },
+        { address: "0x8765...4321", xp: 1800, level: 18 },
+        { address: "0x9876...5432", xp: 1600, level: 16 },
+        { address: "0x5432...9876", xp: 1400, level: 14 },
+        { address: "0x4321...8765", xp: 1200, level: 12 },
+        { address: "0x3456...7890", xp: 1000, level: 10 },
+        { address: "0x7890...3456", xp: 800, level: 8 },
+        { address: "0x2345...6789", xp: 600, level: 6 },
+        { address: "0x6789...2345", xp: 400, level: 4 },
+        { address: "0x5678...1234", xp: 200, level: 2 }
+    ];
+    
+    // Kullanıcı verilerini döngüye al
+    sampleUsers.forEach((user, index) => {
+        try {
+            // Yeni satır oluştur
+            const row = document.createElement('tr');
             
-            const sampleUsers = [
-                { address: "0x1234...5678", xp: 2500, level: 25 },
-                { address: "0x8765...4321", xp: 1800, level: 18 },
-                { address: "0x9876...5432", xp: 1600, level: 16 },
-                { address: "0x5432...9876", xp: 1400, level: 14 },
-                { address: "0x4321...8765", xp: 1200, level: 12 },
-                { address: "0x3456...7890", xp: 1000, level: 10 },
-                { address: "0x7890...3456", xp: 800, level: 8 },
-                { address: "0x2345...6789", xp: 600, level: 6 },
-                { address: "0x6789...2345", xp: 400, level: 4 },
-                { address: "0x5678...1234", xp: 200, level: 2 }
-            ];
+            // İlk 3 sıra için özel sınıf ekle
+            const rankClass = index < 3 ? `rank-${index + 1}` : 'rank-other';
             
-            sampleUsers.forEach((user, index) => {
-                const row = document.createElement('tr');
-                
-                const rankClass = index < 3 ? `rank-${index + 1}` : 'rank-other';
-                
-                row.innerHTML = `
-                    <td>
-                        <div class="rank ${rankClass}">${index + 1}</div>
-                    </td>
-                    <td>
-                        <div class="user-row">
-                            <div class="user-avatar">${user.address.charAt(2).toUpperCase()}</div>
-                            <div class="user-details">
-                                <div class="user-name">User ${index + 1}</div>
-                                <div class="user-address-small">${user.address}</div>
-                            </div>
+            // Satır içeriğini oluştur
+            row.innerHTML = `
+                <td>
+                    <div class="rank ${rankClass}">${index + 1}</div>
+                </td>
+                <td>
+                    <div class="user-row">
+                        <div class="user-avatar">${user.address.charAt(2).toUpperCase()}</div>
+                        <div class="user-details">
+                            <div class="user-name">User ${index + 1}</div>
+                            <div class="user-address-small">${user.address}</div>
                         </div>
-                    </td>
-                    <td class="xp-col">${user.xp} XP</td>
-                    <td>Level ${user.level}</td>
-                `;
-                
-                leaderboardBody.appendChild(row);
-            });
+                    </div>
+                </td>
+                <td class="xp-col">${user.xp} XP</td>
+                <td>Level ${user.level}</td>
+            `;
+            
+            // Satırı tabloya ekle
+            leaderboardBody.appendChild(row);
+            
+        } catch (error) {
+            console.error("Error creating leaderboard row:", error);
         }
+    });
+    
+    console.log("Leaderboard rendering complete!");
+}
         
         async function connectWallet() {
             if (window.ethereum) {
