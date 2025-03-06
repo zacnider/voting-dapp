@@ -1116,3 +1116,77 @@ function showWalletWarning() {
     main.insertBefore(warningElement, main.firstChild);
   }
 }
+
+// Disconnect butonunu ayarlayan fonksiyon
+function setupDisconnectButton() {
+  const disconnectButton = document.getElementById('disconnect-wallet');
+  if (!disconnectButton) return;
+  
+  // Önceki event listener'ları temizle
+  const newButton = disconnectButton.cloneNode(true);
+  disconnectButton.parentNode.replaceChild(newButton, disconnectButton);
+  
+  // Disconnect butonunu göster
+  newButton.style.display = 'inline-block';
+  
+  // Yeni event listener ekle
+  newButton.addEventListener('click', async () => {
+    try {
+      // Cüzdan bağlantısını kes
+      await disconnectWallet();
+    } catch (error) {
+      console.error("Cüzdan bağlantısı kesilirken hata:", error);
+      showMessage("Cüzdan bağlantısı kesilirken bir hata oluştu.", "error");
+    }
+  });
+}
+
+// Cüzdan bağlantısını kesen fonksiyon
+async function disconnectWallet() {
+  try {
+    // MetaMask ile bağlantıyı kesme işlemi
+    // Not: MetaMask doğrudan bir disconnect metodu sağlamaz, 
+    // bu nedenle genellikle UI state'i sıfırlanır
+    
+    // UI'ı sıfırla
+    resetUI();
+    
+    // Kullanıcıya bilgi ver
+    showMessage("Cüzdan bağlantısı kesildi.", "success");
+    
+    // Eğer başka bir wallet provider kullanıyorsanız, 
+    // onun disconnect metodunu burada çağırabilirsiniz
+    
+  } catch (error) {
+    console.error("Cüzdan bağlantısını kesme hatası:", error);
+    throw error;
+  }
+}
+
+// UI'ı sıfırlayan fonksiyon
+function resetUI() {
+  // Connect butonunu göster
+  const connectButton = document.getElementById('connect-wallet');
+  if (connectButton) connectButton.style.display = 'inline-block';
+  
+  // Disconnect butonunu gizle
+  const disconnectButton = document.getElementById('disconnect-wallet');
+  if (disconnectButton) disconnectButton.style.display = 'none';
+  
+  // Wallet adresini sıfırla
+  const walletAddressElement = document.getElementById('wallet-address');
+  if (walletAddressElement) walletAddressElement.textContent = 'Not connected';
+  
+  // Connect section'ı göster
+  const connectSection = document.getElementById('connect-section');
+  if (connectSection) connectSection.style.display = 'block';
+  
+  // App section'ı gizle
+  const appSection = document.getElementById('app-section');
+  if (appSection) appSection.style.display = 'none';
+  
+  // Global değişkenleri sıfırla
+  currentAccount = null;
+  web3 = null;
+  votingContract = null;
+}
