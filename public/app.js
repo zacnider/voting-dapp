@@ -509,38 +509,7 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
                 showNotification('Wallet Not Found', 'Please install MetaMask or another Ethereum wallet!', 'warning');
             }
         }
-       function ensureUserStatsElements() {
-    // Stats container'ı kontrol et
-    let statsContainer = document.querySelector('.user-stats-container');
-    
-    // Eğer yoksa oluştur
-    if (!statsContainer) {
-        statsContainer = document.createElement('div');
-        statsContainer.className = 'user-stats-container card';
-        
-        statsContainer.innerHTML = `
-            <div class="card-body">
-                <h5 class="card-title">Your Stats</h5>
-                <p>Remaining Votes: <span id="remainingVotes">0</span></p>
-                <p>Your XP: <span id="userXP">0</span></p>
-                <div class="progress">
-                    <div id="xpProgressBar" class="progress-bar" role="progressbar" 
-                         style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-                </div>
-            </div>
-        `;
-        
-        // Sayfaya ekle
-        const targetContainer = document.querySelector('#vote') || document.body;
-        targetContainer.prepend(statsContainer);
-    }
-    
-    return {
-        xpProgressBar: document.getElementById('xpProgressBar'),
-        userXPElement: document.getElementById('userXP'),
-        remainingVotesElement: document.getElementById('remainingVotes')
-    };
-}
+      
 
 function updateUserStats(xp, remainingVotes) {
     try {
