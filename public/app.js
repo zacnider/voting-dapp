@@ -272,8 +272,8 @@ const contractAddress = "0x6753f6B230ee795FD518426e5FE0D25Df9E16E99"; // Gerçek
 let web3;
 let votingContract;
 let userAddress = ''; // String olarak tanımla
-let blockchains = [];
-let hasUserPaidFee = false;
+let candidates = []; // Adaylar listesi
+const TEST_MODE = false; // Test modu kapalı
 
 
 
@@ -393,48 +393,144 @@ function setupEventListeners(provider) {
   }
 }
 
-// Uygulamayı başlatan ana fonksiyon
+// Uygulamayı başlatan fonksiyon
 async function initializeApp() {
   try {
     console.log("Uygulama başlatılıyor...");
     
-    // Cüzdan bağlantısını kontrol et
-    const connected = await checkConnection();
+    // Disconnect butonunu ayarla
+    setupDisconnectButton();
     
-    if (connected) {
-      console.log("Cüzdan bağlı, uygulama başlatılıyor...");
+    // Cüzdan bağlantısını kontrol et
+    const isConnected = await checkConnection();
+    if (!isConnected) {
+      console.log("Cüzdan bağlı değil, kullanıcıdan bağlanmasını isteyin.");
+      showConnectButton();
+      return;
+    }
+    
+    console.log("Cüzdan bağlı, uygulama başlatılıyor...");
+    
+    // Oylama durumunu kontrol et
+    try {
+      const votingStatus = await votingContract.methods.getVotingStatus().call();
+      const isActive = votingStatus.isActive;
+      const timeRemaining = votingStatus.timeRemaining;
       
-      if (!TEST_MODE) {
-        // Ağ kontrolü yap
-        const correctNetwork = await checkNetwork();
-        if (!correctNetwork) {
-          return; // Doğru ağda değilse işlemi durdur
-        }
-        
-        // Kontrat instance'ı oluştur
-        votingContract = new web3.eth.Contract(contractABI, contractAddress);
-        console.log("Kontrat oluşturuldu:", votingContract);
+      console.log("Oylama durumu:", isActive ? "Aktif" : "Aktif değil");
+      console.log("Kalan süre:", timeRemaining, "saniye");
+      
+      // Oylama durumunu UI'da göster
+      updateVotingStatus(isActive, timeRemaining);
+    } catch (error) {
+      console.error("Oylama durumu kontrolü sırasında hata:", error);
+    }
+    
+    // Kullanıcının oy kullanıp kullanmadığını kontrol et
+    try {
+      const hasVoted = await checkUserVoted();
+      console.log("Kullanıcı oy kullanmış mı:", hasVoted);
+      
+      // Oy durumunu UI'da göster
+      updateVotingUI(hasVoted);
+    } catch (error) {
+      console.error("Oy durumu kontrolü sırasında hata:", error);
+    }
+    
+    // Aday verilerini yükle
+    await loadCandidateData();
+    
+// Oylama durumunu UI'da gösteren fonksiyon
+function updateVotingStatus(isActive, timeRemaining) {
+  const statusElement = document.getElementById('voting-status');
+  const timeElement = document.getElementById('time-remaining');
+  
+  if (!statusElement || !timeElement) return;
+  
+  if (isActive) {
+    statusElement.textContent = "Oylama aktif";
+    statusElement.classList.add('active');
+    statusElement.classList.remove('inactive');
+    
+    // Kalan süreyi göster
+    const hours = Math.floor(timeRemaining / 3600);
+    const minutes = Math.floor((timeRemaining % 3600) / 60);
+    const seconds = timeRemaining % 60;
+    
+    timeElement.textContent = `${hours}:${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+    
+    // Süreyi her saniye güncelle
+    if (window.countdownInterval) {
+      clearInterval(window.countdownInterval);
+    }
+    
+    let remainingTime = timeRemaining;
+    window.countdownInterval = setInterval(() => {
+      remainingTime--;
+      
+      if (remainingTime <= 0) {
+        clearInterval(window.countdownInterval);
+        updateVotingStatus(false, 0);
+        return;
       }
       
-      // Kullanıcının giriş ücreti ödeyip ödemediğini kontrol et
-      await checkUserPaymentStatus();
+      const h = Math.floor(remainingTime / 3600);
+      const m = Math.floor((remainingTime % 3600) / 60);
+      const s = remainingTime % 60;
       
-      // Blockchain verilerini yükle
-      await loadBlockchainData();
-      
-      // UI'ı güncelle
-      updateUI();
-    } else {
-      console.log("Cüzdan bağlı değil, kullanıcıdan bağlanmasını isteyin.");
-      // Bağlantı butonu göster
-      showConnectButton();
+      timeElement.textContent = `${h}:${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+    }, 1000);
+    
+  } else {
+    statusElement.textContent = "Oylama kapalı";
+    statusElement.classList.add('inactive');
+    statusElement.classList.remove('active');
+    timeElement.textContent = "-";
+    
+    if (window.countdownInterval) {
+      clearInterval(window.countdownInterval);
     }
-  } catch (error) {
-    console.error("Uygulama başlatılırken hata:", error);
-    showErrorMessage("Uygulama başlatılırken bir hata oluştu. Lütfen sayfayı yenileyip tekrar deneyin.");
   }
 }
 
+// Oy durumuna göre UI'ı güncelleyen fonksiyon
+function updateVotingUI(hasVoted) {
+  const voteButtons = document.querySelectorAll('.vote-button');
+  const votedMessage = document.getElementById('voted-message');
+  
+  if (hasVoted) {
+    // Kullanıcı oy kullanmışsa
+    voteButtons.forEach(button => {
+      button.disabled = true;
+      button.textContent = "Oy verildi";
+    });
+    
+    if (votedMessage) {
+      votedMessage.style.display = 'block';
+    }
+  } else {
+    // Kullanıcı henüz oy kullanmamışsa
+    voteButtons.forEach(button => {
+      button.disabled = false;
+      button.textContent = "Oy ver";
+    });
+    
+    if (votedMessage) {
+      votedMessage.style.display = 'none';
+    }
+  }
+}
+
+// Genel UI güncellemesi
+function updateUI() {
+  console.log("UI güncelleniyor...");
+  
+  // Aday kartlarını oluştur
+  createCandidateCards();
+  
+  // Sonuçları güncelle
+  updateResults();
+}
 // Cüzdan bağlantısını kontrol eden fonksiyon
 async function checkConnection() {
   try {
@@ -499,26 +595,60 @@ async function checkConnection() {
   }
 }
 
-// Kullanıcının giriş ücreti ödeyip ödemediğini kontrol eden fonksiyon
-async function checkUserPaymentStatus() {
+// Kullanıcının oy kullanıp kullanmadığını kontrol eden fonksiyon
+async function checkUserVoted() {
   try {
-    console.log("Kullanıcı ödeme durumu kontrol ediliyor...");
+    console.log("Kullanıcının oy kullanıp kullanmadığı kontrol ediliyor...");
     
     if (TEST_MODE) {
-      // Test modunda ödeme durumunu false olarak döndür
-      return false;
+      // Test modunda oy durumunu localStorage'dan kontrol et
+      const testVoted = localStorage.getItem('testVoted');
+      console.log("Test modu oy durumu:", testVoted);
+      return testVoted === 'true';
     }
     
     if (!userAddress) {
-      console.log("Kullanıcı adresi bulunamadı, ödeme kontrolü yapılamıyor.");
+      console.log("Kullanıcı adresi bulunamadı, oy kontrolü yapılamıyor.");
       return false;
     }
     
-    // Kontrat üzerinden kullanıcının ödeme yapıp yapmadığını kontrol et
-    const hasPaid = await votingContract.methods.hasPaid(userAddress).call();
-    return hasPaid;
+    // userAddress'in string olduğundan emin ol
+    const addressStr = String(userAddress).toLowerCase();
+    
+    // Önce localStorage'dan kontrol et (hızlı erişim için)
+    const localStorageKey = `voted_${addressStr}`;
+    const localStorageValue = localStorage.getItem(localStorageKey);
+    
+    if (localStorageValue === 'true') {
+      console.log("Oy durumu localStorage'dan alındı: true");
+      return true;
+    }
+    
+    // Kontrat üzerinden kullanıcının oy kullanıp kullanmadığını kontrol et
+    console.log("Oy kontrolü için kullanılan adres:", addressStr);
+    
+    if (!votingContract || !votingContract.methods) {
+      console.error("Kontrat tanımlı değil veya methods özelliği yok");
+      return false;
+    }
+    
+    try {
+      // voters mapping'ini kontrol et
+      const hasVoted = await votingContract.methods.voters(addressStr).call();
+      console.log("Kontrat üzerinden oy durumu:", hasVoted);
+      
+      // Oy durumunu localStorage'a kaydet
+      if (hasVoted) {
+        localStorage.setItem(localStorageKey, 'true');
+      }
+      
+      return hasVoted;
+    } catch (contractError) {
+      console.error("Kontrat çağrısı hatası:", contractError);
+      return false;
+    }
   } catch (error) {
-    console.error("Kontrat çağrısı hatası:", error);
+    console.error("Oy durumu kontrolü sırasında hata:", error);
     return false;
   }
 }
@@ -627,50 +757,54 @@ async function checkNetwork() {
 }
 
 
-// Blockchain verilerini yükleyen fonksiyon
-async function loadBlockchainData() {
+// Aday verilerini yükleyen fonksiyon
+async function loadCandidateData() {
   try {
-    showLoading("Blockchain verileri yükleniyor...");
+    console.log("Aday verileri yükleniyor...");
     
     if (TEST_MODE) {
-      // Test modunda örnek veriler kullan
-      console.log("TEST MODU: Örnek blockchain verileri yükleniyor");
-      blockchains = [
-        { id: 1, name: "Monad", symbol: "MON", voteCount: 120 },
-        { id: 2, name: "Ethereum", symbol: "ETH", voteCount: 85 },
-        { id: 3, name: "Bitcoin", symbol: "BTC", voteCount: 75 },
-        { id: 4, name: "Binance Smart Chain", symbol: "BSC", voteCount: 60 },
-        { id: 5, name: "Solana", symbol: "SOL", voteCount: 45 },
-        { id: 6, name: "Avalanche", symbol: "AVAX", voteCount: 40 },
-        { id: 7, name: "Polkadot", symbol: "DOT", voteCount: 35 },
-        { id: 8, name: "Cardano", symbol: "ADA", voteCount: 30 },
-        { id: 9, name: "Polygon", symbol: "MATIC", voteCount: 25 },
-        { id: 10, name: "Cosmos", symbol: "ATOM", voteCount: 20 }
+      // Test verileri
+      candidates = [
+        { id: 1, name: "Ethereum", info: "ETH", voteCount: 0 },
+        { id: 2, name: "Binance Smart Chain", info: "BSC", voteCount: 0 },
+        { id: 3, name: "Polygon", info: "MATIC", voteCount: 0 },
+        { id: 4, name: "Solana", info: "SOL", voteCount: 0 },
+        { id: 5, name: "Avalanche", info: "AVAX", voteCount: 0 }
       ];
-      
-      // Sonuçları güncelle
-      updateResults();
-      hideLoading();
       return;
     }
     
-    // Gerçek kontrat çağrısı:
     try {
-      blockchains = await votingContract.methods.getAllBlockchains().call();
-      console.log("Kontrat üzerinden alınan blockchain zincirleri:", blockchains);
+      // Kontrat nesnesinin varlığını kontrol et
+      if (!votingContract || !votingContract.methods) {
+        console.error("Kontrat tanımlı değil veya methods özelliği yok");
+        return;
+      }
+      
+      // Toplam aday sayısını al
+      const candidatesCount = await votingContract.methods.candidatesCount().call();
+      console.log("Aday sayısı:", candidatesCount);
+      
+      // Adayları yükle
+      candidates = [];
+      for (let i = 1; i <= candidatesCount; i++) {
+        const candidate = await votingContract.methods.getCandidate(i).call();
+        candidates.push({
+          id: candidate.id,
+          name: candidate.name,
+          info: candidate.info,
+          voteCount: candidate.voteCount
+        });
+      }
+      
+      console.log("Yüklenen adaylar:", candidates);
+      
     } catch (error) {
-      console.error("Blockchain verileri alınamadı:", error);
-      blockchains = [];
+      console.error("Aday verilerini yükleme hatası:", error);
     }
-    
-    // Sonuçları güncelle
-    updateResults();
-    
-    hideLoading();
   } catch (error) {
-    hideLoading();
-    console.error("Blockchain verileri yüklenirken hata:", error);
-    showErrorMessage("Blockchain verileri yüklenirken bir hata oluştu.");
+    console.error("Aday verilerini yükleme hatası:", error);
+    showErrorMessage("Aday verilerini yüklerken bir hata oluştu. Lütfen sayfayı yenileyin ve tekrar deneyin.");
   }
 }
 
@@ -695,30 +829,51 @@ function updateUI() {
     const entrySection = document.getElementById('entry-section');
     const votingSection = document.getElementById('voting-section');
     
-    if (entrySection && votingSection) {
-      if (hasUserPaidFee) {
-        // Kullanıcı ücret ödemiş, oylama bölümünü göster
-        entrySection.style.display = 'none';
-        votingSection.style.display = 'block';
-        
-        // Blockchain kartlarını oluştur
-        createBlockchainCards();
-      } else if (userAddress) {
-        // Kullanıcı bağlı ama ücret ödememiş, giriş ücreti bölümünü göster
-        entrySection.style.display = 'block';
-        votingSection.style.display = 'none';
-        
-        // Giriş ücreti butonuna event listener ekle
-        setupEntryFeeButton();
-      } else {
-        // Kullanıcı bağlı değil, her iki bölümü de gizle
-        entrySection.style.display = 'none';
-        votingSection.style.display = 'none';
-      }
+// Aday kartlarını oluşturan fonksiyon
+function createCandidateCards() {
+  const candidateContainer = document.getElementById('candidate-container');
+  if (!candidateContainer) return;
+  
+  // Önce mevcut kartları temizle
+  candidateContainer.innerHTML = '';
+  
+  // Adayları sırala (oy sayısına göre azalan sırada)
+  const sortedCandidates = [...candidates].sort((a, b) => b.voteCount - a.voteCount);
+  
+  // Her aday için kart oluştur
+  sortedCandidates.forEach(candidate => {
+    const card = document.createElement('div');
+    card.className = 'candidate-card';
+    
+    const name = document.createElement('h3');
+    name.textContent = candidate.name;
+    card.appendChild(name);
+    
+    const info = document.createElement('p');
+    info.textContent = candidate.info;
+    card.appendChild(info);
+    
+    const votes = document.createElement('p');
+    votes.textContent = `Oy sayısı: ${candidate.voteCount}`;
+    votes.className = 'vote-count';
+    card.appendChild(votes);
+    
+    // Oy verme butonu
+    const voteButton = document.createElement('button');
+    voteButton.textContent = "Oy ver";
+    voteButton.className = 'vote-button';
+    voteButton.onclick = () => voteForCandidate(candidate.id);
+    
+    // Kullanıcı oy kullanmışsa butonu devre dışı bırak
+    if (localStorage.getItem(`voted_${String(userAddress).toLowerCase()}`) === 'true') {
+      voteButton.disabled = true;
+      voteButton.textContent = "Oy verildi";
     }
-  } catch (error) {
-    console.error("UI güncellenirken hata:", error);
-  }
+    
+    card.appendChild(voteButton);
+    
+    candidateContainer.appendChild(card);
+  });
 }
 
 // Giriş ücreti butonuna event listener ekleyen fonksiyon
@@ -801,47 +956,64 @@ function createBlockchainCards() {
   });
 }
 
-// Blockchain'e oy verme fonksiyonu
-async function voteForBlockchain(blockchainId) {
+// Oy verme fonksiyonu
+async function voteForCandidate(candidateId) {
   try {
     showLoading("Oy veriliyor...");
     
     if (TEST_MODE) {
-      console.log("TEST MODU: Oy verme işlemi simüle ediliyor", blockchainId);
+      console.log("TEST MODU: Oy verme işlemi simüle ediliyor", candidateId);
       // Simüle edilmiş oy verme
       setTimeout(() => {
-        // Seçilen blockchain için oy sayısını artır
-        blockchains = blockchains.map(bc => {
-          if (bc.id == blockchainId) {
-            return {...bc, voteCount: parseInt(bc.voteCount) + 1};
+        // Seçilen aday için oy sayısını artır
+        candidates = candidates.map(c => {
+          if (c.id == candidateId) {
+            return {...c, voteCount: parseInt(c.voteCount) + 1};
           }
-          return bc;
+          return c;
         });
         
+        // Test için localStorage'a kaydet
+        localStorage.setItem('testVoted', 'true');
+        
         updateResults();
-        createBlockchainCards();
+        createCandidateCards();
         showSuccessMessage("Test modu: Oyunuz başarıyla kaydedildi!");
         hideLoading();
       }, 1000);
       return;
     }
     
-    // userAddress'in string olduğunu kontrol et
-    console.log("Oy veren adres (tipi):", typeof userAddress, userAddress);
+    // userAddress'in string olduğunu garanti et
+    const addressStr = String(userAddress);
+    console.log("Oy veren adres (tipi):", typeof addressStr, addressStr);
     
-    // Gerçek oy verme kodu...
-    await votingContract.methods.vote(blockchainId).send({
-      from: userAddress
+    // vote fonksiyonunu çağır
+    await votingContract.methods.vote(candidateId).send({
+      from: addressStr
     });
     
-    await loadBlockchainData();
+    // localStorage'a oy kullanıldığını kaydet
+    localStorage.setItem(`voted_${addressStr.toLowerCase()}`, 'true');
+    
+    await loadCandidateData();
     
     showSuccessMessage("Oyunuz başarıyla kaydedildi!");
     hideLoading();
   } catch (error) {
     hideLoading();
     console.error("Oy verme işlemi sırasında hata:", error);
-    showErrorMessage("Oy verme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.");
+    
+    // Kullanıcıya daha detaylı hata mesajı göster
+    if (error.message && error.message.includes("already voted")) {
+      showErrorMessage("Daha önce oy kullanmışsınız.");
+    } else if (error.message && error.message.includes("Voting is not active")) {
+      showErrorMessage("Oylama şu anda aktif değil.");
+    } else if (error.message && error.message.includes("User denied")) {
+      showErrorMessage("İşlem kullanıcı tarafından reddedildi.");
+    } else {
+      showErrorMessage("Oy verme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.");
+    }
   }
 }
 // Sonuçları güncelleyen fonksiyon
@@ -849,38 +1021,58 @@ function updateResults() {
   const resultsContainer = document.getElementById('results-container');
   if (!resultsContainer) return;
   
-  // Önceki içeriği temizle
+  // Önce mevcut sonuçları temizle
   resultsContainer.innerHTML = '';
   
-  // Oy sayısına göre sırala
-  const sortedBlockchains = [...blockchains].sort((a, b) => b.voteCount - a.voteCount);
-  
   // Toplam oy sayısını hesapla
-  const totalVotes = sortedBlockchains.reduce((sum, blockchain) => sum + parseInt(blockchain.voteCount), 0);
+  const totalVotes = candidates.reduce((sum, candidate) => sum + parseInt(candidate.voteCount), 0);
   
-  // Her blockchain için sonuç öğesi oluştur
-  sortedBlockchains.forEach((blockchain, index) => {
-    const percentage = totalVotes > 0 ? (blockchain.voteCount / totalVotes * 100).toFixed(1) : 0;
+  // Adayları sırala (oy sayısına göre azalan sırada)
+  const sortedCandidates = [...candidates].sort((a, b) => b.voteCount - a.voteCount);
+  
+  // Sonuç başlığı
+  const heading = document.createElement('h2');
+  heading.textContent = `Sonuçlar (Toplam: ${totalVotes} oy)`;
+  resultsContainer.appendChild(heading);
+  
+  // Her aday için sonuç satırı oluştur
+  sortedCandidates.forEach((candidate, index) => {
+    const resultRow = document.createElement('div');
+    resultRow.className = 'result-row';
     
-    const resultItem = document.createElement('div');
-    resultItem.className = `result-item ${blockchain.name === 'Monad' ? 'monad' : ''}`;
+    // Sıra numarası
+    const rank = document.createElement('span');
+    rank.textContent = `${index + 1}.`;
+    rank.className = 'rank';
+    resultRow.appendChild(rank);
     
-    resultItem.innerHTML = `
-      <span class="rank">#${index + 1}</span>
-      <div class="blockchain-name">
-        <strong>${blockchain.name}</strong>
-        <span class="blockchain-symbol">${blockchain.symbol}</span>
-      </div>
-      <div class="votes">
-        <div>${blockchain.voteCount} oy (${percentage}%)</div>
-        <div class="vote-bar" style="width: ${percentage}%"></div>
-      </div>
-    `;
+    // Aday adı
+    const name = document.createElement('span');
+    name.textContent = candidate.name;
+    name.className = 'candidate-name';
+    resultRow.appendChild(name);
     
-    resultsContainer.appendChild(resultItem);
+    // Oy sayısı ve yüzdesi
+    const votes = document.createElement('span');
+    const percentage = totalVotes > 0 ? ((candidate.voteCount / totalVotes) * 100).toFixed(1) : 0;
+    votes.textContent = `${candidate.voteCount} oy (${percentage}%)`;
+    votes.className = 'vote-info';
+    resultRow.appendChild(votes);
+    
+    // İlerleme çubuğu
+    const progressBar = document.createElement('div');
+    progressBar.className = 'progress-bar';
+    
+    const progress = document.createElement('div');
+    progress.className = 'progress';
+    progress.style.width = `${percentage}%`;
+    progressBar.appendChild(progress);
+    
+    resultRow.appendChild(progressBar);
+    
+    resultsContainer.appendChild(resultRow);
   });
 }
-
 // Yükleme göstergesini görüntüleyen fonksiyon
 function showLoading(message = "İşlem yapılıyor...") {
   const loadingOverlay = document.getElementById('loading-overlay');
