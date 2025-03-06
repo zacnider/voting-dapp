@@ -36,7 +36,7 @@ function getCompatibleEthereumProvider() {
         } catch (e) {
           console.error("Web3Modal error:", e);
         }
-      }
+      
       
       // MetaMask'in eski provider'ını kontrol et
       if (window.web3 && window.web3.currentProvider) {
