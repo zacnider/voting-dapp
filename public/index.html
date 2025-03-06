@@ -3,83 +3,185 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blockchain Popularity Vote</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <title>Monad Blockchain Voting</title>
+    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <header>
-        <h1>Blockchain Popularity Vote</h1>
-        <div id="wallet-section">
-            <div id="wallet-info">
-                <span id="wallet-address">Not connected</span>
-            </div>
-            <button id="connect-wallet" class="primary-btn">Connect Wallet</button>
-            <button id="disconnect-wallet" class="btn btn-danger" style="display: none;">Disconnect</button>
+        <div class="header-content container">
+            <h1>Monad Blockchain Voting</h1>
+            <p class="tagline">Vote for your favorite blockchain and earn XP rewards!</p>
         </div>
     </header>
     
-    <main>
-        <!-- Bağlantı Bölümü -->
-        <section id="connect-section">
-            <div class="card">
-                <h2>Welcome to Blockchain Voting</h2>
-                <p>Connect your wallet to participate in the blockchain popularity vote.</p>
-                <button id="connect-wallet-main" class="primary-btn">Connect Wallet</button>
+    <div class="container">
+        <div class="user-panel">
+            <div class="user-info">
+                <div class="user-address">
+                    <i class="fas fa-wallet"></i>
+                    <span class="address-text" id="userAddress">Not connected</span>
+                    <span class="level-badge" id="userLevel"><i class="fas fa-star"></i> Level 0</span>
+                </div>
+                <div class="xp-bar">
+                    <div class="xp-progress" id="xpProgress"></div>
+                </div>
+                <div class="xp-text">
+                    <span id="currentXP">0 XP</span>
+                    <span id="nextLevelXP">Next level: 100 XP</span>
+                </div>
             </div>
-        </section>
+            
+            <div class="user-stats">
+                <div class="stat-item">
+                    <div class="stat-title">Today's Votes</div>
+                    <div class="stat-value" id="todayVotes">0/20</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-title">Total XP</div>
+                    <div class="stat-value" id="totalXP">0</div>
+                </div>
+            </div>
+            
+            <button id="connectWallet" class="connect-button">
+                <i class="fas fa-plug button-icon"></i>
+                <span id="connectButtonText">Connect Wallet</span>
+            </button>
+        </div>
         
-        <!-- Uygulama Bölümü -->
-        <section id="app-section" style="display: none;">
-            <!-- Mesaj Alanı -->
-            <div id="message" class="message" style="display: none;"></div>
+        <div class="tabs">
+            <div class="tab active" data-tab="voting">Voting</div>
+            <div class="tab" data-tab="leaderboard">Leaderboard</div>
+            <div class="tab" data-tab="rewards">Rewards</div>
+        </div>
+        
+        <div id="votingTab" class="tab-content">
+            <div class="search-bar">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" class="search-input" placeholder="Search blockchains..." id="searchInput">
+            </div>
             
-            <!-- Ödeme Bölümü -->
-            <section id="payment-section" style="display: none;">
-                <div class="card">
-                    <h2>Entry Fee Payment</h2>
-                    <p>To participate in voting, you need to pay a one-time entry fee of <strong><span id="entry-fee">0.2 MON</span></strong>.</p>
-                    <p>After payment, you can vote for your favorite blockchain platform.</p>
-                    <button id="pay-button" class="primary-btn">Pay Entry Fee</button>
+            <div class="sort-controls">
+                <span class="sort-label">Sort by:</span>
+                <select class="sort-select" id="sortSelect">
+                    <option value="popularity">Popularity</option>
+                    <option value="name">Name</option>
+                    <option value="votes-high">Most Votes</option>
+                    <option value="votes-low">Least Votes</option>
+                </select>
+            </div>
+            
+            <div id="blockchainGrid" class="blockchain-grid">
+                <div class="loading">
+                    <div class="spinner"></div>
                 </div>
-            </section>
-            
-            <!-- Oylama Bölümü -->
-            <section id="voting-section" style="display: none;">
-                <h2>Vote for Your Favorite Blockchain</h2>
-                <p class="info-text">Select your favorite blockchain platform to cast your vote.</p>
+            </div>
+        </div>
+        
+        <div id="leaderboardTab" class="tab-content" style="display: none;">
+            <div class="leaderboard">
+                <h2 class="leaderboard-title">
+                    <i class="fas fa-trophy leaderboard-icon"></i>
+                    Top Voters
+                </h2>
                 
-                <div class="blockchain-grid" id="blockchain-container">
-                    <!-- Blockchain kartları burada oluşturulacak -->
-                    <p class="loading-text">Loading blockchains...</p>
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>User</th>
+                            <th>XP</th>
+                            <th>Level</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody">
+                        <tr>
+                            <td colspan="4" style="text-align: center;">Connect your wallet to see the leaderboard</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div id="rewardsTab" class="tab-content" style="display: none;">
+            <div class="leaderboard">
+                <h2 class="leaderboard-title">
+                    <i class="fas fa-gift leaderboard-icon"></i>
+                    XP Rewards
+                </h2>
+                
+                <p>Earn XP by voting for your favorite blockchains! Unlock special rewards as you level up.</p>
+                
+                <h3>How to earn XP:</h3>
+                <ul>
+                    <li>+10 XP for each vote</li>
+                    <li>+50 XP bonus for voting every day for a week</li>
+                    <li>+100 XP for discovering new blockchains</li>
+                </ul>
+                
+                <h3>Level Rewards:</h3>
+                <div class="blockchain-grid">
+                    <div class="blockchain-card">
+                        <div class="blockchain-logo" style="background: linear-gradient(135deg, #a29bfe, #6c5ce7);">
+                            <i class="fas fa-award"></i>
+                        </div>
+                        <div class="blockchain-name">Level 5</div>
+                        <div class="blockchain-votes">500 XP required</div>
+                        <div class="vote-bar">
+                            <div class="vote-progress" style="width: 0%"></div>
+                        </div>
+                        <p>Unlock exclusive Monad NFT badge</p>
+                    </div>
+                    
+                    <div class="blockchain-card">
+                        <div class="blockchain-logo" style="background: linear-gradient(135deg, #74b9ff, #0984e3);">
+                            <i class="fas fa-gem"></i>
+                        </div>
+                        <div class="blockchain-name">Level 10</div>
+                        <div class="blockchain-votes">1000 XP required</div>
+                        <div class="vote-bar">
+                            <div class="vote-progress" style="width: 0%"></div>
+                        </div>
+                        <p>Receive 50 Monad Testnet tokens</p>
+                    </div>
+                    
+                    <div class="blockchain-card">
+                        <div class="blockchain-logo" style="background: linear-gradient(135deg, #ff9a9e, #fad0c4);">
+                            <i class="fas fa-crown"></i>
+                        </div>
+                        <div class="blockchain-name">Level 25</div>
+                        <div class="blockchain-votes">2500 XP required</div>
+                        <div class="vote-bar">
+                            <div class="vote-progress" style="width: 0%"></div>
+                        </div>
+                        <p>Special Monad Testnet early contributor status</p>
+                    </div>
                 </div>
-            </section>
-            
-            <!-- Sonuçlar Bölümü -->
-            <section id="results-section">
-                <h2>Current Rankings</h2>
-                <div id="results-container">
-                    <!-- Sonuçlar burada gösterilecek -->
-                    <p class="loading-text">Loading results...</p>
-                </div>
-            </section>
-        </section>
-    </main>
-    
-    <!-- Yükleme Göstergesi -->
-    <div id="loading" style="display: none;" class="loading-overlay">
-        <div class="spinner"></div>
-        <p id="loading-message">Processing...</p>
+            </div>
+        </div>
     </div>
     
-    <footer>
-        <p>&copy; 2025 Blockchain Popularity Vote | Powered by Monad</p>
-    </footer>
-
-    <!-- Web3 ve diğer kütüphaneler -->
-    <script src="https://cdn.jsdelivr.net/npm/web3@1.6.0/dist/web3.min.js"></script>
+    <div class="theme-toggle" id="themeToggle">
+        <i class="fas fa-moon"></i>
+    </div>
     
-    <!-- Uygulama script'i -->
+    <div class="notification" id="notification">
+        <div class="notification-icon success" id="notificationIcon">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="notification-content">
+            <div class="notification-title" id="notificationTitle">Success</div>
+            <div class="notification-message" id="notificationMessage">Your vote has been recorded!</div>
+        </div>
+        <button class="close-notification" id="closeNotification">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
