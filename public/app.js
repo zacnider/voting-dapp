@@ -28,7 +28,7 @@ async function setupWeb3() {
       window.ethereum.on('accountsChanged', (accounts) => {
         console.log('Hesap değişti:', accounts);
         userAddress = accounts ? String(accounts) : '';
-        initializeApp();
+        window.location.reload(); // Hesap değiştiğinde sayfayı yenile
       });
       
       // Ağ değişikliklerini dinle
@@ -368,9 +368,13 @@ async function setupWeb3() {
       }
     ];
     
-    // Kontrat nesnesini oluştur
-    votingContract = new web3.eth.Contract(contractABI, contractAddress);
-    console.log("Kontrat başarıyla oluşturuldu.");
+ // Kontrat nesnesini oluştur
+    if (web3 && contractAddress && contractABI) {
+      votingContract = new web3.eth.Contract(contractABI, contractAddress);
+      console.log("Kontrat başarıyla oluşturuldu.");
+    } else {
+      console.error("Kontrat oluşturulamadı: web3, adres veya ABI eksik");
+    }
     
   } catch (error) {
     console.error("Web3 kurulumu sırasında hata:", error);
@@ -378,6 +382,7 @@ async function setupWeb3() {
   }
 }
 
+// Cüzdan bağlantısını kontrol eden fonksiyon
 // Cüzdan bağlantısını kontrol eden fonksiyon
 async function checkConnection() {
   try {
