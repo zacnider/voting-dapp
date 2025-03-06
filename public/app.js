@@ -283,26 +283,25 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
                     
                     
                     // Sayfa yüklendiğinde çalışacak kodlar
-                    document.addEventListener('DOMContentLoaded', () => {
-                        // Dark mode kontrolü
-                        if (darkMode) {
-                            document.body.classList.add('dark-theme');
-                            document.getElementById('themeToggle').innerHTML = '<i class="fas fa-sun"></i>';
-                        }
-                        
-                        // Tab geçişleri
-                        document.querySelectorAll('.tab').forEach(tab => {
-                            tab.addEventListener('click', () => {
-                                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                                tab.classList.add('active');
-                                
-                                const tabName = tab.getAttribute('data-tab');
-                                document.querySelectorAll('.tab-content').forEach(content => {
-                                    content.style.display = 'none';
-                                });
-                                document.getElementById(`${tabName}Tab`).style.display = 'block';
-                            });
-                        });
+                    // Sayfa yüklendiğinde çalıştırılacak güvenli bir fonksiyon
+document.addEventListener('DOMContentLoaded', function() {
+    console.log("DOM fully loaded");
+    
+    // Leaderboard body elementini kontrol et
+    const leaderboardBody = document.getElementById('leaderboardBody');
+    console.log("Leaderboard body element:", leaderboardBody);
+    
+    // Card-body elementini kontrol et
+    const cardBody = document.querySelector('.card-body');
+    console.log("Card body element:", cardBody);
+    
+    // Tüm card-body elementlerini listele
+    const allCardBodies = document.querySelectorAll('.card-body');
+    console.log("All card body elements:", allCardBodies);
+    
+    // DOM yapısını kontrol et
+    console.log("DOM structure:", document.body.innerHTML);
+});
                         
                         // Sıralama değişikliği
                         document.getElementById('sortSelect').addEventListener('change', sortBlockchains);
