@@ -3,7 +3,7 @@ let web3;
 let votingContract;
 let userAddress = ''; // String olarak tanımlı
 let candidates = []; // Adaylar listesi
-const TEST_MODE = false; // Test modu kapalı
+const TEST_MODE = true; // Test modu kapalı
 
 // Uygulama başlatma
 document.addEventListener('DOMContentLoaded', async () => {
