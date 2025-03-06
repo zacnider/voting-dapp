@@ -337,45 +337,7 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
                 loadSampleData();
             }
         }
-function updateProgressBar(xpValue) {
-    const progressBar = document.getElementById('xpProgressBar');
-    if (!progressBar) {
-        console.log("Progress bar element not found in DOM");
-        return; // Element yoksa fonksiyondan çık
-    }
-    
-    try {
-        // XP değerini sayıya dönüştür (BigNumber olabilir)
-        let xpNumber;
-        if (typeof xpValue.toNumber === 'function') {
-            xpNumber = xpValue.toNumber();
-        } else {
-            xpNumber = Number(xpValue);
-        }
         
-        // Yüzde hesapla (0-100 arası)
-        const maxXP = 1000; // Maksimum XP değeri
-        const xpPercentage = Math.min(100, Math.max(0, (xpNumber / maxXP) * 100));
-        
-        // İlerleme çubuğunu güncelle
-        progressBar.style.width = `${xpPercentage}%`;
-        progressBar.setAttribute('aria-valuenow', xpPercentage);
-        
-        // Opsiyonel: Renk değişimi
-        if (xpPercentage < 30) {
-            progressBar.className = 'progress-bar bg-danger';
-        } else if (xpPercentage < 70) {
-            progressBar.className = 'progress-bar bg-warning';
-        } else {
-            progressBar.className = 'progress-bar bg-success';
-        }
-        
-    } catch (error) {
-        console.error("Error updating progress bar:", error);
-    }
-}
-
-
         function loadSampleData() {
             // Örnek blockchain verileri
             const sampleBlockchains = [
@@ -460,168 +422,104 @@ function updateProgressBar(xpValue) {
             });
         }
         
-       async function connectWallet() {
-    if (!window.ethereum) {
-        showNotification('Wallet Not Found', 'Please install MetaMask or another Ethereum wallet!', 'warning');
-        return;
-    }
-
-    try {
-        document.getElementById('connectButtonText').textContent = 'Connecting...';
-        
-        // MetaMask bağlantısı
-        await window.ethereum.request({ method: 'eth_requestAccounts' });
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
-        
-        // Kontrat bağlantısı
-        try {
-            contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-        } catch (contractError) {
-            console.error("Contract initialization error:", contractError);
-            document.getElementById('connectButtonText').textContent = 'Connect Wallet';
-            showNotification('Contract Error', 'Could not initialize the smart contract.', 'error');
-            return;
-        }
-        
-        // Kullanıcı adresi
-        const address = await signer.getAddress();
-        const userAddressElement = document.getElementById('userAddress');
-        if (userAddressElement) {
-            userAddressElement.textContent = shortenAddress(address);
-        }
-        
-        // UI güncelle
-        const connectButton = document.getElementById('connectWallet');
-        const connectButtonTextElement = document.getElementById('connectButtonText');
-        
-        if (connectButtonTextElement) {
-            connectButtonTextElement.textContent = 'Connected';
-        }
-        
-        if (connectButton) {
-            connectButton.disabled = true;
-        }
-        
-        isConnected = true;
-        
-        // Monad Testnet'e geçiş yap - hatayı yutarak devam et
-        try {
-            await switchToMonadTestnet();
-        } catch (networkError) {
-            console.error("Network switching error:", networkError);
-            // Devam et, kritik değil
-        }
-        
-        // Kullanıcı istatistiklerini güncelle
-        try {
-            await updateUserStats();
-        } catch (statsError) {
-            console.error("Error updating user stats:", statsError);
-            // Devam et, kritik değil
-        }
-        
-        // Blokzincirleri yükle
-        try {
-            await loadBlockchains();
-        } catch (loadError) {
-            console.error("Error loading blockchains:", loadError);
-            showNotification('Data Error', 'Could not load blockchain data.', 'warning');
-        }
-        
-        showNotification('Connected!', 'Your wallet has been successfully connected.', 'success');
-        
-    } catch (error) {
-        console.error("Connection error:", error);
-        const connectButtonTextElement = document.getElementById('connectButtonText');
-        if (connectButtonTextElement) {
-            connectButtonTextElement.textContent = 'Connect Wallet';
-        }
-        showNotification('Connection Failed', 'Could not connect to your wallet.', 'error');
-    }
-}
-// Monad Testnet'e geçiş yapma fonksiyonu
-async function switchToMonadTestnet() {
-    try {
-        console.log("Attempting to switch to Monad Testnet...");
-        
-        // Önce ağın zaten ekli olup olmadığını kontrol et
-        await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: '0x98A' }], // 2442 decimal = 0x98A hex
-        });
-        console.log("Successfully switched to Monad Testnet");
-        
-    } catch (switchError) {
-        console.log("Switch error:", switchError);
-        
-        // Ağ ekli değilse ekle (4902 error code)
-        if (switchError.code === 4902) {
-            try {
-                console.log("Adding Monad Testnet to wallet...");
-                await window.ethereum.request({
-                    method: 'wallet_addEthereumChain',
-                    params: [{
-                        chainId: '10143',
-                        chainName: 'Monad Testnet',
-                        nativeCurrency: {
-                            name: 'Monad',
-                            symbol: 'MON',
-                            decimals: 18
-                        },
-                        rpcUrls: ['https://testnet-rpc.monad.xyz/'],
-                        blockExplorerUrls: ['https://testnet.monadexplorer.com/']
-                    }]
-                });
-                console.log("Successfully added Monad Testnet");
-                
-            } catch (addError) {
-                console.error("Error adding Monad Testnet:", addError);
-                showNotification('Network Error', 'Failed to add Monad Testnet. Please add it manually.', 'warning');
-                // Kritik hata değil, devam et
+        async function connectWallet() {
+            if (window.ethereum) {
+                try {
+                    document.getElementById('connectButtonText').textContent = 'Connecting...';
+                    
+                    await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
+                    signer = provider.getSigner();
+                    contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                    
+                    const address = await signer.getAddress();
+                    document.getElementById('userAddress').textContent = shortenAddress(address);
+                    document.getElementById('connectButtonText').textContent = 'Connected';
+                    document.getElementById('connectWallet').disabled = true;
+                    
+                    isConnected = true;
+                    
+                    // Monad Testnet'e geçiş yap
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: '0x98A' }], // 2442 decimal = 0x98A hex
+                        });
+                    } catch (switchError) {
+                        // Ağ ekli değilse ekle
+                        if (switchError.code === 4902) {
+                            try {
+                                await window.ethereum.request({
+                                    method: 'wallet_addEthereumChain',
+                                    params: [
+                                        {
+                                            chainId: '10143',
+                                            chainName: 'Monad Testnet',
+                                            nativeCurrency: {
+                                                name: 'Monad',
+                                                symbol: 'MON',
+                                                decimals: 18,
+                                            },
+                                            rpcUrls: ['https://testnet-rpc.monad.xyz/'],
+                                            blockExplorerUrls: ['https://testnet.monadexplorer.com/'],
+                                        },
+                                    ],
+                                });
+                            } catch (addError) {
+                                console.error('Error adding Monad Testnet:', addError);
+                                showNotification('Error', 'Could not add Monad Testnet to your wallet.', 'error');
+                            }
+                        }
+                    }
+                    
+                    await updateUserStats();
+                    await loadBlockchains();
+                    
+                    showNotification('Connected!', 'Your wallet has been successfully connected.', 'success');
+                    
+                } catch (error) {
+                    console.error("User rejected connection:", error);
+                    document.getElementById('connectButtonText').textContent = 'Connect Wallet';
+                    showNotification('Connection Failed', 'Could not connect to your wallet.', 'error');
+                }
+            } else {
+                showNotification('Wallet Not Found', 'Please install MetaMask or another Ethereum wallet!', 'warning');
             }
-        } else if (switchError.code === 4001) {
-            // Kullanıcı reddettiğinde
-            console.log("User rejected the request to switch networks");
-            showNotification('Network Switch Rejected', 'You need to switch to Monad Testnet to use this application.', 'warning');
-        } else {
-            console.error("Unknown error switching networks:", switchError);
-            showNotification('Network Error', 'Could not switch to Monad Testnet.', 'warning');
-        }
-    }
-}
-
-// Kullanıcı istatistiklerini güncelleme fonksiyonu
-async function updateUserStats() {
-    try {
-        if (!isConnected || !contract) {
-            console.log("Not connected or contract not initialized");
-            return;
-        }
-
-        // Kalan oyları al
-        const remainingVotes = await contract.getRemainingVotes();
-        const remainingVotesElement = document.getElementById('remainingVotes');
-        if (remainingVotesElement) {
-            remainingVotesElement.textContent = remainingVotes.toString();
         }
         
-        // Kullanıcı XP'sini al
-        const address = await signer.getAddress();
-        const userXP = await contract.getUserXP(address);
-        const userXPElement = document.getElementById('userXP');
-        if (userXPElement) {
-            userXPElement.textContent = userXP.toString();
+        async function updateUserStats() {
+            if (!isConnected) return;
+            
+            try {
+                const remainingVotes = await contract.getRemainingVotes();
+                const usedVotes = 20 - remainingVotes.toNumber();
+                document.getElementById('todayVotes').textContent = `${usedVotes}/20`;
+                
+                const address = await signer.getAddress();
+                const userXP = await contract.getUserXP(address);
+                const xp = userXP.toNumber();
+                document.getElementById('totalXP').textContent = xp;
+                document.getElementById('currentXP').textContent = `${xp} XP`;
+                
+                // Level hesaplama (her 100 XP'de bir level)
+                const level = Math.floor(xp / 100);
+                const nextLevelXP = (level + 1) * 100;
+                const progress = (xp % 100) / 100 * 100;
+                
+                document.getElementById('userLevel').innerHTML = `<i class="fas fa-star"></i> Level ${level}`;
+                document.getElementById('nextLevelXP').textContent = `Next level: ${nextLevelXP} XP`;
+                document.getElementById('xpProgress').style.width = `${progress}%`;
+                
+                // Reward tab'daki ilerleme çubuklarını güncelle
+                const rewardBars = document.querySelectorAll('#rewardsTab .vote-progress');
+                rewardBars.style.width = Math.min(xp / 500 * 100, 100) + '%';
+                rewardBars.style.width = Math.min(xp / 1000 * 100, 100) + '%';
+                rewardBars.style.width = Math.min(xp / 2500 * 100, 100) + '%';
+                
+            } catch (error) {
+                console.error("Error updating user stats:", error);
+            }
         }
-        
-        // İlerleme çubuğunu güvenli bir şekilde güncelle
-        updateProgressBar(userXP);
-        
-        console.log("User stats updated successfully");
-    } catch (error) {
-        console.error("Error updating user stats:", error);
-    }
-}
         
         async function loadBlockchains() {
             if (!isConnected) return;
@@ -733,58 +631,49 @@ async function updateUserStats() {
             renderBlockchains();
         }
         
-       async function voteForBlockchain(blockchainIndex) {
-    if (!isConnected || !contract) {
-        showNotification('Not Connected', 'Please connect your wallet first.', 'warning');
-        return;
-    }
-    
-    try {
-        // Oy verme işlemini başlat
-        showNotification('Processing', 'Submitting your vote...', 'info');
-        
-        const tx = await contract.vote(blockchainIndex);
-        showNotification('Transaction Sent', 'Please wait for confirmation...', 'info');
-        
-        // İşlemin onaylanmasını bekle
-        await tx.wait();
-        
-        // Başarılı işlem
-        showNotification('Success', 'Your vote has been recorded!', 'success');
-        
-        // UI'yı güncelle
-        try {
-            await updateUserStats();
-        } catch (statsError) {
-            console.error("Error updating user stats:", statsError);
-            // Kritik değil, devam et
+        async function voteForBlockchain(index) {
+            if (!isConnected) {
+                showNotification('Not Connected', 'Please connect your wallet first!', 'warning');
+                return;
+            }
+            
+            try {
+                const tx = await contract.vote(index);
+                
+                // Oylama beklerken düğmeyi devre dışı bırak
+                const buttons = document.querySelectorAll('.vote-button');
+                buttons.forEach(btn => {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Voting...';
+                });
+                
+                await tx.wait();
+                
+                // Konfeti efekti
+                createConfetti();
+                
+                showNotification('Vote Successful!', 'Your vote has been recorded and you earned 10 XP!', 'success');
+                
+                await updateUserStats();
+                await loadBlockchains();
+                
+            } catch (error) {
+                console.error("Error voting:", error);
+                
+                if (error.message.includes("Daily voting limit reached")) {
+                    showNotification('Limit Reached', 'You have reached your daily voting limit of 20 votes.', 'warning');
+                } else {
+                    showNotification('Error', 'Failed to cast your vote. Please try again.', 'error');
+                }
+                
+                // Düğmeleri tekrar etkinleştir
+                const buttons = document.querySelectorAll('.vote-button');
+                buttons.forEach(btn => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-vote-yea"></i> Vote';
+                });
+            }
         }
-        
-        try {
-            await loadBlockchains();
-        } catch (loadError) {
-            console.error("Error loading blockchains:", loadError);
-            // Kritik değil, devam et
-        }
-        
-    } catch (error) {
-        console.error("Voting error:", error);
-        
-        // Hata mesajını kullanıcıya göster
-        let errorMessage = 'Could not process your vote.';
-        
-        // Yaygın hataları kontrol et
-        if (error.code === 4001) {
-            errorMessage = 'You rejected the transaction.';
-        } else if (error.message && error.message.includes('insufficient funds')) {
-            errorMessage = 'You do not have enough funds to complete this transaction.';
-        } else if (error.message && error.message.includes('daily vote limit')) {
-            errorMessage = 'You have reached your daily vote limit.';
-        }
-        
-        showNotification('Voting Failed', errorMessage, 'error');
-    }
-}
         
         function showNotification(title, message, type = 'success') {
             const notification = document.getElementById('notification');
