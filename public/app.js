@@ -398,40 +398,54 @@ async function initializeApp() {
   try {
     console.log("Uygulama başlatılıyor...");
     
-    // Cüzdan bağlantısını kontrol et
-    const connected = await checkConnection();
+    // Disconnect butonunu ayarla
+    setupDisconnectButton();
     
-    if (connected) {
-      console.log("Cüzdan bağlı, uygulama başlatılıyor...");
-      
-      if (!TEST_MODE) {
-        // Ağ kontrolü yap
-        const correctNetwork = await checkNetwork();
-        if (!correctNetwork) {
-          return; // Doğru ağda değilse işlemi durdur
-        }
-        
-        // Kontrat instance'ı oluştur
-        votingContract = new web3.eth.Contract(contractABI, contractAddress);
-        console.log("Kontrat oluşturuldu:", votingContract);
-      }
-      
-      // Kullanıcının giriş ücreti ödeyip ödemediğini kontrol et
-      await checkUserPaymentStatus();
-      
-      // Blockchain verilerini yükle
-      await loadBlockchainData();
-      
-      // UI'ı güncelle
-      updateUI();
-    } else {
+    // Cüzdan bağlantısını kontrol et
+    const isConnected = await checkConnection();
+    if (!isConnected) {
       console.log("Cüzdan bağlı değil, kullanıcıdan bağlanmasını isteyin.");
-      // Bağlantı butonu göster
       showConnectButton();
+      return;
     }
+    
+    console.log("Cüzdan bağlı, uygulama başlatılıyor...");
+    
+    // Kullanıcının ödeme yapıp yapmadığını kontrol et
+    try {
+      const hasPaid = await checkUserPayment();
+      console.log("Kullanıcı ödeme yapmış mı:", hasPaid);
+      
+      // Ödeme durumunu UI'da göster
+      updatePaymentUI(hasPaid);
+      
+      // Kullanıcı ödeme yapmadıysa, diğer işlemleri yapma
+      if (!hasPaid) {
+        return;
+      }
+    } catch (error) {
+      console.error("Ödeme durumu kontrolü sırasında hata:", error);
+    }
+    
+    // Kullanıcının oy kullanıp kullanmadığını kontrol et
+    try {
+      const hasVoted = await checkUserVoted();
+      console.log("Kullanıcı oy kullanmış mı:", hasVoted);
+      
+      // Oy durumunu UI'da göster
+      updateVotingUI(hasVoted);
+    } catch (error) {
+      console.error("Oy durumu kontrolü sırasında hata:", error);
+    }
+    
+    // Blockchain verilerini yükle
+    await loadBlockchainData();
+    
+    // UI güncelle
+    updateUI();
   } catch (error) {
-    console.error("Uygulama başlatılırken hata:", error);
-    showErrorMessage("Uygulama başlatılırken bir hata oluştu. Lütfen sayfayı yenileyip tekrar deneyin.");
+    console.error("Uygulama başlatma hatası:", error);
+    showErrorMessage("Uygulama başlatılırken bir hata oluştu. Lütfen sayfayı yenileyin ve tekrar deneyin.");
   }
 }
 
@@ -500,26 +514,156 @@ async function checkConnection() {
 }
 
 // Kullanıcının giriş ücreti ödeyip ödemediğini kontrol eden fonksiyon
-async function checkUserPaymentStatus() {
+// Kullanıcının ödeme yapıp yapmadığını kontrol eden fonksiyon
+async function checkUserPayment() {
   try {
-    console.log("Kullanıcı ödeme durumu kontrol ediliyor...");
+    console.log("Kullanıcının ödeme durumu kontrol ediliyor...");
     
     if (TEST_MODE) {
-      // Test modunda ödeme durumunu false olarak döndür
+      // Test modu için ödeme durumunu localStorage'dan kontrol et
+      const hasPaid = localStorage.getItem('testUserPaid') === 'true';
+      console.log("Test modu ödeme durumu:", hasPaid);
+      return hasPaid;
+    }
+    
+    if (!userAddress || !votingContract) {
+      console.log("Kullanıcı adresi veya kontrat bulunamadı, ödeme kontrolü yapılamıyor.");
       return false;
     }
     
-    if (!userAddress) {
-      console.log("Kullanıcı adresi bulunamadı, ödeme kontrolü yapılamıyor.");
+    try {
+      // userAddress'in string olduğundan emin ol
+      const addressStr = String(userAddress).toLowerCase();
+      
+      // Önce localStorage'dan kontrol et (hızlı erişim için)
+      const localStorageKey = `paid_${addressStr}`;
+      const localStorageValue = localStorage.getItem(localStorageKey);
+      
+      if (localStorageValue === 'true') {
+        console.log("Ödeme durumu localStorage'dan alındı: true");
+        return true;
+      }
+      
+      // Kontrat üzerinden kullanıcının ödeme yapıp yapmadığını kontrol et
+      console.log("Ödeme kontrolü için kullanılan adres:", addressStr);
+      
+      const hasPaid = await votingContract.methods.hasUserPaid(addressStr).call();
+      console.log("Kontrat üzerinden ödeme durumu:", hasPaid);
+      
+      // Ödeme durumunu localStorage'a kaydet
+      if (hasPaid) {
+        localStorage.setItem(localStorageKey, 'true');
+      }
+      
+      return hasPaid;
+    } catch (contractError) {
+      console.error("Kontrat çağrısı hatası:", contractError);
       return false;
     }
-    
-    // Kontrat üzerinden kullanıcının ödeme yapıp yapmadığını kontrol et
-    const hasPaid = await votingContract.methods.hasPaid(userAddress).call();
-    return hasPaid;
   } catch (error) {
-    console.error("Kontrat çağrısı hatası:", error);
+    console.error("Ödeme durumu kontrolü sırasında hata:", error);
     return false;
+  }
+}
+
+// Giriş ücreti ödeme fonksiyonu
+async function payEntryFee() {
+  try {
+    showLoading("Ödeme yapılıyor...");
+    
+    if (TEST_MODE) {
+      console.log("TEST MODU: Ödeme işlemi simüle ediliyor");
+      // Simüle edilmiş ödeme
+      setTimeout(() => {
+        localStorage.setItem('testUserPaid', 'true');
+        hideLoading();
+        showSuccessMessage("Test modu: Ödeme başarıyla yapıldı!");
+        initializeApp(); // Uygulamayı yeniden başlat
+      }, 1000);
+      return;
+    }
+    
+    // userAddress'in string olduğunu garanti et
+    const addressStr = String(userAddress);
+    console.log("Ödeme yapan adres:", addressStr);
+    
+    try {
+      // Önce ENTRY_FEE değerini al
+      const entryFee = await votingContract.methods.ENTRY_FEE().call();
+      console.log("Giriş ücreti:", web3.utils.fromWei(entryFee, 'ether'), "ETH");
+      
+      // Ödeme işlemini gerçekleştir
+      await votingContract.methods.payEntryFee().send({
+        from: addressStr,
+        value: entryFee
+      });
+      
+      // localStorage'a ödeme yapıldığını kaydet
+      localStorage.setItem(`paid_${addressStr.toLowerCase()}`, 'true');
+      
+      hideLoading();
+      showSuccessMessage("Ödeme başarıyla yapıldı!");
+      
+      // Uygulamayı yeniden başlat
+      initializeApp();
+    } catch (error) {
+      hideLoading();
+      console.error("Ödeme işlemi sırasında hata:", error);
+      
+      // Kullanıcıya daha detaylı hata mesajı göster
+      if (error.message && error.message.includes("User denied")) {
+        showErrorMessage("İşlem kullanıcı tarafından reddedildi.");
+      } else {
+        showErrorMessage("Ödeme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.");
+      }
+    }
+  } catch (error) {
+    hideLoading();
+    console.error("Ödeme işlemi sırasında hata:", error);
+    showErrorMessage("Ödeme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.");
+  }
+}
+
+// Ödeme durumuna göre UI'ı güncelleyen fonksiyon
+function updatePaymentUI(hasPaid) {
+  const paymentSection = document.getElementById('payment-section');
+  const votingSection = document.getElementById('voting-section');
+  
+  if (!paymentSection || !votingSection) return;
+  
+  if (hasPaid) {
+    // Kullanıcı ödeme yapmışsa
+    paymentSection.style.display = 'none';
+    votingSection.style.display = 'block';
+  } else {
+    // Kullanıcı henüz ödeme yapmamışsa
+    paymentSection.style.display = 'block';
+    votingSection.style.display = 'none';
+    
+    // Ödeme butonuna event listener ekle
+    const payButton = document.getElementById('pay-button');
+    if (payButton) {
+      // Önceki event listener'ları temizle
+      const newButton = payButton.cloneNode(true);
+      payButton.parentNode.replaceChild(newButton, payButton);
+      
+      // Yeni event listener ekle
+      newButton.addEventListener('click', async () => {
+        await payEntryFee();
+      });
+    }
+    
+    // Giriş ücretini göster
+    const feeElement = document.getElementById('entry-fee');
+    if (feeElement) {
+      try {
+        const entryFee = await votingContract.methods.ENTRY_FEE().call();
+        feeElement.textContent = web3.utils.fromWei(entryFee, 'ether') + " ETH";
+      } catch (error) {
+        console.error("Giriş ücreti alınamadı:", error);
+        feeElement.textContent = "Yükleniyor...";
+      }
+    }
   }
 }
 
@@ -630,50 +774,39 @@ async function checkNetwork() {
 // Blockchain verilerini yükleyen fonksiyon
 async function loadBlockchainData() {
   try {
-    showLoading("Blockchain verileri yükleniyor...");
+    console.log("Blockchain verileri yükleniyor...");
     
     if (TEST_MODE) {
-      // Test modunda örnek veriler kullan
-      console.log("TEST MODU: Örnek blockchain verileri yükleniyor");
+      // Test verileri
       blockchains = [
-        { id: 1, name: "Monad", symbol: "MON", voteCount: 120 },
-        { id: 2, name: "Ethereum", symbol: "ETH", voteCount: 85 },
-        { id: 3, name: "Bitcoin", symbol: "BTC", voteCount: 75 },
-        { id: 4, name: "Binance Smart Chain", symbol: "BSC", voteCount: 60 },
-        { id: 5, name: "Solana", symbol: "SOL", voteCount: 45 },
-        { id: 6, name: "Avalanche", symbol: "AVAX", voteCount: 40 },
-        { id: 7, name: "Polkadot", symbol: "DOT", voteCount: 35 },
-        { id: 8, name: "Cardano", symbol: "ADA", voteCount: 30 },
-        { id: 9, name: "Polygon", symbol: "MATIC", voteCount: 25 },
-        { id: 10, name: "Cosmos", symbol: "ATOM", voteCount: 20 }
+        { id: 1, name: "Ethereum", symbol: "ETH", voteCount: 0 },
+        { id: 2, name: "Binance Smart Chain", symbol: "BSC", voteCount: 0 },
+        { id: 3, name: "Polygon", symbol: "MATIC", voteCount: 0 },
+        { id: 4, name: "Solana", symbol: "SOL", voteCount: 0 },
+        { id: 5, name: "Avalanche", symbol: "AVAX", voteCount: 0 }
       ];
-      
-      // Sonuçları güncelle
-      updateResults();
-      hideLoading();
       return;
     }
     
-    // Gerçek kontrat çağrısı:
     try {
+      // Kontrat nesnesinin varlığını kontrol et
+      if (!votingContract || !votingContract.methods) {
+        console.error("Kontrat tanımlı değil veya methods özelliği yok");
+        return;
+      }
+      
+      // getAllBlockchains fonksiyonunu çağır
       blockchains = await votingContract.methods.getAllBlockchains().call();
-      console.log("Kontrat üzerinden alınan blockchain zincirleri:", blockchains);
+      console.log("Yüklenen blockchain'ler:", blockchains);
+      
     } catch (error) {
-      console.error("Blockchain verileri alınamadı:", error);
-      blockchains = [];
+      console.error("Blockchain verilerini yükleme hatası:", error);
     }
-    
-    // Sonuçları güncelle
-    updateResults();
-    
-    hideLoading();
   } catch (error) {
-    hideLoading();
-    console.error("Blockchain verileri yüklenirken hata:", error);
-    showErrorMessage("Blockchain verileri yüklenirken bir hata oluştu.");
+    console.error("Blockchain verilerini yükleme hatası:", error);
+    showErrorMessage("Blockchain verilerini yüklerken bir hata oluştu. Lütfen sayfayı yenileyin ve tekrar deneyin.");
   }
 }
-
 // Kullanıcı arayüzünü güncelleyen fonksiyon
 function updateUI() {
   try {
@@ -801,7 +934,7 @@ function createBlockchainCards() {
   });
 }
 
-// Blockchain'e oy verme fonksiyonu
+// Oy verme fonksiyonu
 async function voteForBlockchain(blockchainId) {
   try {
     showLoading("Oy veriliyor...");
@@ -811,12 +944,15 @@ async function voteForBlockchain(blockchainId) {
       // Simüle edilmiş oy verme
       setTimeout(() => {
         // Seçilen blockchain için oy sayısını artır
-        blockchains = blockchains.map(bc => {
-          if (bc.id == blockchainId) {
-            return {...bc, voteCount: parseInt(bc.voteCount) + 1};
+        blockchains = blockchains.map(b => {
+          if (b.id == blockchainId) {
+            return {...b, voteCount: parseInt(b.voteCount) + 1};
           }
-          return bc;
+          return b;
         });
+        
+        // Test için localStorage'a kaydet
+        localStorage.setItem('testVoted', 'true');
         
         updateResults();
         createBlockchainCards();
@@ -826,24 +962,40 @@ async function voteForBlockchain(blockchainId) {
       return;
     }
     
-    // userAddress'in string olduğunu kontrol et
-    console.log("Oy veren adres (tipi):", typeof userAddress, userAddress);
+    // userAddress'in string olduğunu garanti et
+    const addressStr = String(userAddress);
+    console.log("Oy veren adres (tipi):", typeof addressStr, addressStr);
     
-    // Gerçek oy verme kodu...
+    // vote fonksiyonunu çağır
     await votingContract.methods.vote(blockchainId).send({
-      from: userAddress
+      from: addressStr
     });
+    
+    // localStorage'a oy kullanıldığını kaydet
+    localStorage.setItem(`voted_${addressStr.toLowerCase()}`, 'true');
     
     await loadBlockchainData();
     
     showSuccessMessage("Oyunuz başarıyla kaydedildi!");
     hideLoading();
+    
+    // UI'ı güncelle
+    updateUI();
   } catch (error) {
     hideLoading();
     console.error("Oy verme işlemi sırasında hata:", error);
-    showErrorMessage("Oy verme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.");
+    
+    // Kullanıcıya daha detaylı hata mesajı göster
+    if (error.message && error.message.includes("already voted")) {
+      showErrorMessage("Daha önce oy kullanmışsınız.");
+    } else if (error.message && error.message.includes("User denied")) {
+      showErrorMessage("İşlem kullanıcı tarafından reddedildi.");
+    } else {
+      showErrorMessage("Oy verme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.");
+    }
   }
 }
+
 // Sonuçları güncelleyen fonksiyon
 function updateResults() {
   const resultsContainer = document.getElementById('results-container');
