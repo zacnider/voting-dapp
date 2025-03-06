@@ -466,7 +466,7 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
                     try {
                         await window.ethereum.request({
                             method: 'wallet_switchEthereumChain',
-                            params: [{ chainId: '10143' }], // 2442 decimal = 0x98A hex
+                            params: [{ chainId: '0x279f' }], // 2442 decimal = 0x98A hex
                         });
                     } catch (switchError) {
                         // Ağ ekli değilse ekle
