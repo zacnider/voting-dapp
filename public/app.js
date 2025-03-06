@@ -704,49 +704,58 @@ async function updateUserStats() {
             renderBlockchains();
         }
         
-        async function voteForBlockchain(index) {
-            if (!isConnected) {
-                showNotification('Not Connected', 'Please connect your wallet first!', 'warning');
-                return;
-            }
-            
-            try {
-                const tx = await contract.vote(index);
-                
-                // Oylama beklerken düğmeyi devre dışı bırak
-                const buttons = document.querySelectorAll('.vote-button');
-                buttons.forEach(btn => {
-                    btn.disabled = true;
-                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Voting...';
-                });
-                
-                await tx.wait();
-                
-                // Konfeti efekti
-                createConfetti();
-                
-                showNotification('Vote Successful!', 'Your vote has been recorded and you earned 10 XP!', 'success');
-                
-                await updateUserStats();
-                await loadBlockchains();
-                
-            } catch (error) {
-                console.error("Error voting:", error);
-                
-                if (error.message.includes("Daily voting limit reached")) {
-                    showNotification('Limit Reached', 'You have reached your daily voting limit of 20 votes.', 'warning');
-                } else {
-                    showNotification('Error', 'Failed to cast your vote. Please try again.', 'error');
-                }
-                
-                // Düğmeleri tekrar etkinleştir
-                const buttons = document.querySelectorAll('.vote-button');
-                buttons.forEach(btn => {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-vote-yea"></i> Vote';
-                });
-            }
+       async function voteForBlockchain(blockchainIndex) {
+    if (!isConnected || !contract) {
+        showNotification('Not Connected', 'Please connect your wallet first.', 'warning');
+        return;
+    }
+    
+    try {
+        // Oy verme işlemini başlat
+        showNotification('Processing', 'Submitting your vote...', 'info');
+        
+        const tx = await contract.vote(blockchainIndex);
+        showNotification('Transaction Sent', 'Please wait for confirmation...', 'info');
+        
+        // İşlemin onaylanmasını bekle
+        await tx.wait();
+        
+        // Başarılı işlem
+        showNotification('Success', 'Your vote has been recorded!', 'success');
+        
+        // UI'yı güncelle
+        try {
+            await updateUserStats();
+        } catch (statsError) {
+            console.error("Error updating user stats:", statsError);
+            // Kritik değil, devam et
         }
+        
+        try {
+            await loadBlockchains();
+        } catch (loadError) {
+            console.error("Error loading blockchains:", loadError);
+            // Kritik değil, devam et
+        }
+        
+    } catch (error) {
+        console.error("Voting error:", error);
+        
+        // Hata mesajını kullanıcıya göster
+        let errorMessage = 'Could not process your vote.';
+        
+        // Yaygın hataları kontrol et
+        if (error.code === 4001) {
+            errorMessage = 'You rejected the transaction.';
+        } else if (error.message && error.message.includes('insufficient funds')) {
+            errorMessage = 'You do not have enough funds to complete this transaction.';
+        } else if (error.message && error.message.includes('daily vote limit')) {
+            errorMessage = 'You have reached your daily vote limit.';
+        }
+        
+        showNotification('Voting Failed', errorMessage, 'error');
+    }
+}
         
         function showNotification(title, message, type = 'success') {
             const notification = document.getElementById('notification');
