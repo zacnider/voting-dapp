@@ -509,17 +509,47 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
                 showNotification('Wallet Not Found', 'Please install MetaMask or another Ethereum wallet!', 'warning');
             }
         }
+       function ensureUserStatsElements() {
+    // Stats container'ı kontrol et
+    let statsContainer = document.querySelector('.user-stats-container');
+    
+    // Eğer yoksa oluştur
+    if (!statsContainer) {
+        statsContainer = document.createElement('div');
+        statsContainer.className = 'user-stats-container card';
         
-        function updateUserStats(xp, remainingVotes) {
+        statsContainer.innerHTML = `
+            <div class="card-body">
+                <h5 class="card-title">Your Stats</h5>
+                <p>Remaining Votes: <span id="remainingVotes">0</span></p>
+                <p>Your XP: <span id="userXP">0</span></p>
+                <div class="progress">
+                    <div id="xpProgressBar" class="progress-bar" role="progressbar" 
+                         style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            </div>
+        `;
+        
+        // Sayfaya ekle
+        const targetContainer = document.querySelector('#vote') || document.body;
+        targetContainer.prepend(statsContainer);
+    }
+    
+    return {
+        xpProgressBar: document.getElementById('xpProgressBar'),
+        userXPElement: document.getElementById('userXP'),
+        remainingVotesElement: document.getElementById('remainingVotes')
+    };
+}
+
+function updateUserStats(xp, remainingVotes) {
     try {
         // XP ve remainingVotes değerlerini güvenli şekilde al
         xp = xp || 0;
         remainingVotes = remainingVotes || 0;
         
-        // DOM elementlerini güvenli şekilde seç
-        const xpProgressBar = document.getElementById('xpProgressBar');
-        const userXPElement = document.getElementById('userXP');
-        const remainingVotesElement = document.getElementById('remainingVotes');
+        // Gerekli DOM elementlerinin varlığını sağla
+        const elements = ensureUserStatsElements();
         
         // XP ile ilgili hesaplamalar
         const level = Math.floor(xp / 100) + 1;
@@ -529,19 +559,17 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
         const progressPercentage = (xpProgress / 100) * 100;
         
         // DOM elementlerini güvenli şekilde güncelle
-        if (userXPElement) {
-            userXPElement.textContent = xp;
+        if (elements.userXPElement) {
+            elements.userXPElement.textContent = xp;
         }
         
-        if (remainingVotesElement) {
-            remainingVotesElement.textContent = remainingVotes;
+        if (elements.remainingVotesElement) {
+            elements.remainingVotesElement.textContent = remainingVotes;
         }
         
-        if (xpProgressBar) {
-            xpProgressBar.style.width = `${progressPercentage}%`;
-            xpProgressBar.setAttribute('aria-valuenow', progressPercentage);
-        } else {
-            console.warn("XP progress bar element not found");
+        if (elements.xpProgressBar) {
+            elements.xpProgressBar.style.width = `${progressPercentage}%`;
+            elements.xpProgressBar.setAttribute('aria-valuenow', progressPercentage);
         }
         
         console.log("User stats updated successfully");
@@ -549,7 +577,6 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
         console.error("Error updating user stats:", error);
     }
 }
-        
         async function loadBlockchains() {
             if (!isConnected) return;
             
