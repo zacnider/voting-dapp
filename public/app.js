@@ -456,7 +456,7 @@ async function addMonadTestnetToMetamask() {
     try {
         // Monad Testnet parametreleri
         const monadTestnet = {
-            chainId: '0x279F' + (3001).toString(16), // 3001 (decimal) -> 0xbb9 (hex)
+            chainId: '0x' + (10143).toString(16), // 10143(decimal) -> 0x279f (hex)
             chainName: 'Monad Testnet',
             nativeCurrency: {
                 name: 'Monad',
