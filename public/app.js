@@ -4,7 +4,6 @@ let contract;
 let blockchains = [];
 let maxVotes = 0;
 let isConnected = false;
-let addMonadButton, disconnectButton;
 let darkMode = localStorage.getItem('darkMode') === 'true';  
                   
                   // Contract address and ABI
