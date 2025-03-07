@@ -351,7 +351,7 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
                 { name: "Polkadot", votes: 580 },
                 { name: "Cosmos", votes: 520 },
                 { name: "Near Protocol", votes: 480 },
-                { name: "Monad", votes: 450 },
+                { name: "Monad", votes: 4500 },
                 { name: "Arbitrum", votes: 420 },
                 { name: "Optimism", votes: 400 },
                 { name: "zkSync", votes: 380 },
@@ -472,7 +472,7 @@ async function updateConnectionStatus() {
             addMonadButton.disabled = false;
             
             // Disconnect butonunu gizle
-            disconnectButton.style.display = 'none';
+            disconnectButton.style.display = 'yes';
         }
     } catch (error) {
         console.error('Error checking connection status:', error);
