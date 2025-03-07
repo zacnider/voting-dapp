@@ -4,9 +4,6 @@ let contract;
 let blockchains = [];
 let maxVotes = 0;
 let isConnected = false;
-let xpProgressBarElement = null;
-let userXPElement = null;
-let remainingVotesElement = null;
 let darkMode = localStorage.getItem('darkMode') === 'true';  
                   
                   // Contract address and ABI
