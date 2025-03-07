@@ -4,6 +4,9 @@ let contract;
 let blockchains = [];
 let maxVotes = 0;
 let isConnected = false;
+let xpProgressBarElement = null;
+let userXPElement = null;
+let remainingVotesElement = null;
 let darkMode = localStorage.getItem('darkMode') === 'true';  
                   
                   // Contract address and ABI
@@ -516,7 +519,7 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
             }
         }
         
-function updateUserStats(xp, remainingVotes) {
+async function updateUserStats(xp, remainingVotes) {
     try {
         // XP ve remainingVotes değerlerini güvenli şekilde al
         xp = xp || 0;
