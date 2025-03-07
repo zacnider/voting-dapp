@@ -510,39 +510,52 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
             }
         }
         
-        async function updateUserStats() {
-            if (!isConnected) return;
-            
-            try {
-                const remainingVotes = await contract.getRemainingVotes();
-                const usedVotes = 20 - remainingVotes.toNumber();
-                document.getElementById('todayVotes').textContent = `${usedVotes}/20`;
-                
-                const address = await signer.getAddress();
-                const userXP = await contract.getUserXP(address);
-                const xp = userXP.toNumber();
-                document.getElementById('totalXP').textContent = xp;
-                document.getElementById('currentXP').textContent = `${xp} XP`;
-                
-                // Level hesaplama (her 100 XP'de bir level)
-                const level = Math.floor(xp / 100);
-                const nextLevelXP = (level + 1) * 100;
-                const progress = (xp % 100) / 100 * 100;
-                
-                document.getElementById('userLevel').innerHTML = `<i class="fas fa-star"></i> Level ${level}`;
-                document.getElementById('nextLevelXP').textContent = `Next level: ${nextLevelXP} XP`;
-                document.getElementById('xpProgress').style.width = `${progress}%`;
-                
-                // Reward tab'daki ilerleme çubuklarını güncelle
-                const rewardBars = document.querySelectorAll('#rewardsTab .vote-progress');
-                rewardBars.style.width = Math.min(xp / 500 * 100, 100) + '%';
-                rewardBars.style.width = Math.min(xp / 1000 * 100, 100) + '%';
-                rewardBars.style.width = Math.min(xp / 2500 * 100, 100) + '%';
-                
-            } catch (error) {
-                console.error("Error updating user stats:", error);
-            }
+ async function updateUserStats() {
+    if (!isConnected) return;
+    
+    try {
+        const remainingVotes = await contract.getRemainingVotes();
+        const usedVotes = 20 - remainingVotes.toNumber();
+        document.getElementById('todayVotes').textContent = `${usedVotes}/20`;
+        
+        const address = await signer.getAddress();
+        const userXP = await contract.getUserXP(address);
+        const xp = userXP.toNumber();
+        document.getElementById('totalXP').textContent = xp;
+        document.getElementById('currentXP').textContent = `${xp} XP`;
+        
+        // Level hesaplama (her 100 XP'de bir level)
+        const level = Math.floor(xp / 100);
+        const nextLevelXP = (level + 1) * 100;
+        const progress = (xp % 100) / 100 * 100;
+        
+        document.getElementById('userLevel').innerHTML = `<i class="fas fa-star"></i> Level ${level}`;
+        document.getElementById('nextLevelXP').textContent = `Next level: ${nextLevelXP} XP`;
+        
+        // XP ilerleme çubuğunu güncelle
+        const xpProgressBar = document.getElementById('xpProgress');
+        if (xpProgressBar) {
+            xpProgressBar.style.width = `${progress}%`;
         }
+        
+        // Reward tab'daki ilerleme çubuklarını güncelle
+        const rewardBars = document.querySelectorAll('#rewardsTab .vote-progress');
+        
+        // Her bir reward bar'ı ayrı ayrı güncelle
+        rewardBars.forEach((bar, index) => {
+            if (index === 0) { // İlk bar - 500 XP için
+                bar.style.width = Math.min(xp / 500 * 100, 100) + '%';
+            } else if (index === 1) { // İkinci bar - 1000 XP için
+                bar.style.width = Math.min(xp / 1000 * 100, 100) + '%';
+            } else if (index === 2) { // Üçüncü bar - 2500 XP için
+                bar.style.width = Math.min(xp / 2500 * 100, 100) + '%';
+            }
+        });
+        
+    } catch (error) {
+        console.error("Error updating user stats:", error);
+    }
+}
         
         async function loadBlockchains() {
             if (!isConnected) return;
