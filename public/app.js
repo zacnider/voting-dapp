@@ -379,14 +379,19 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
             renderSampleLeaderboard();
         }
         
-       function renderSampleLeaderboard() {
+       // Leaderboard'u oluşturan fonksiyon
+function renderSampleLeaderboard() {
     console.log("Rendering leaderboard...");
     
+    // Leaderboard body elementini al
     const leaderboardBody = document.getElementById('leaderboardBody');
     
     // Leaderboard body elementini kontrol et
     if (!leaderboardBody) {
-        console.error("Leaderboard body element not found!");
+        console.error("Leaderboard body element not found! ID: 'leaderboardBody'");
+        // Tüm tbody elementlerini kontrol et
+        const tbodyElements = document.getElementsByTagName('tbody');
+        console.log(`Found ${tbodyElements.length} tbody elements on the page.`);
         return;
     }
     
@@ -406,6 +411,15 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
         { address: "0x6789...2345", xp: 400, level: 4 },
         { address: "0x5678...1234", xp: 200, level: 2 }
     ];
+    
+    // Veri kontrolü
+    if (!sampleUsers || sampleUsers.length === 0) {
+        console.error("No leaderboard data available");
+        leaderboardBody.innerHTML = '<tr><td colspan="4" class="text-center">No data available</td></tr>';
+        return;
+    }
+    
+    console.log(`Processing ${sampleUsers.length} leaderboard entries...`);
     
     // Kullanıcı verilerini döngüye al
     sampleUsers.forEach((user, index) => {
@@ -438,13 +452,21 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
             leaderboardBody.appendChild(row);
             
         } catch (error) {
-            console.error("Error creating leaderboard row:", error);
+            console.error(`Error creating leaderboard row for index ${index}:`, error);
         }
     });
     
     console.log("Leaderboard rendering complete!");
 }
 
+// Sayfanın yüklenmesini bekleyin ve sonra leaderboard'u oluşturun
+document.addEventListener('DOMContentLoaded', function() {
+    console.log("DOM content loaded, initializing leaderboard...");
+    setTimeout(renderSampleLeaderboard, 100); // Küçük bir gecikme ekleyin
+});
+
+// Hata durumunda manuel olarak çağırmak için global kapsamda tutun
+window.renderLeaderboard = renderSampleLeaderboard;
 // Disconnect butonu için referans
 const disconnectButton = document.getElementById('disconnectButton');
 
