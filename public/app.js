@@ -456,16 +456,16 @@ async function addMonadTestnetToMetamask() {
     try {
         // Monad Testnet parametreleri
         const monadTestnet = {
-            chainId: '0x' + (3001).toString(16), // 3001 (decimal) -> 0xbb9 (hex)
+            chainId: '0x279f' + (3001).toString(16), // 3001 (decimal) -> 0xbb9 (hex)
             chainName: 'Monad Testnet',
             nativeCurrency: {
                 name: 'Monad',
-                symbol: 'MONAD',
+                symbol: 'MON',
                 decimals: 18,
             },
-            rpcUrls: ['https://dev-testnet.monad.xyz/rpc'],
-            blockExplorerUrls: ['https://explorer.dev-testnet.monad.xyz'],
-            iconUrls: ['https://monad.xyz/logo.png'], // Monad logosu varsa ekleyin
+            rpcUrls: ['https://testnet-rpc.monad.xyz'],
+            blockExplorerUrls: ['https://testnet.monadexplorer.com'],
+            iconUrls: ['https://cdn.prod.website-files.com/667c57e6f9254a4b6d914440/667d7104644c621965495f6e_LogoMark.svg'], // Monad logosu varsa ekleyin
         };
 
         // Metamask'a ağ ekleme isteği gönder
