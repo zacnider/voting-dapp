@@ -446,6 +446,9 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
 }
 
 // Monad Testnet'i Metamask'a ekleyen fonksiyon
+
+
+
 async function addMonadTestnetToMetamask() {
     // Metamask'ın yüklü olup olmadığını kontrol et
     if (typeof window.ethereum === 'undefined') {
@@ -537,7 +540,7 @@ async function switchToMonadTestnet() {
     try {
         await window.ethereum.request({
             method: 'wallet_switchEthereumChain',
-            params: [{ chainId: '0x' + (3001).toString(16) }], // 0xbb9
+            params: [{ chainId: '0x' + (10143).toString(16) }], // 0x279f
         });
         
         showNotification('Success', 'Switched to Monad Testnet!', 'success');
