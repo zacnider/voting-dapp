@@ -445,9 +445,134 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
     console.log("Leaderboard rendering complete!");
 }
 
+// Disconnect butonu için referans
+const disconnectButton = document.getElementById('disconnectButton');
+
+// Bağlantı durumunu kontrol eden ve butonları güncelleyen fonksiyon
+async function updateConnectionStatus() {
+    try {
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        const monadChainIdHex = '0x' + (10143).toString(16); // 0x279f
+        
+        if (accounts.length > 0 && chainId === monadChainIdHex) {
+            // Monad ağına bağlıysa
+            addMonadButton.innerHTML = '<i class="fas fa-check"></i> Connected to Monad Testnet';
+            addMonadButton.classList.remove('btn-primary');
+            addMonadButton.classList.add('btn-success');
+            addMonadButton.disabled = true;
+            
+            // Disconnect butonunu göster
+            disconnectButton.style.display = 'inline-block';
+        } else {
+            // Bağlı değilse
+            addMonadButton.innerHTML = '<i class="fas fa-plus-circle"></i> Add Monad Testnet';
+            addMonadButton.classList.remove('btn-success');
+            addMonadButton.classList.add('btn-primary');
+            addMonadButton.disabled = false;
+            
+            // Disconnect butonunu gizle
+            disconnectButton.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Error checking connection status:', error);
+    }
+}
+
+// Disconnect butonu işleyicisi
+disconnectButton.addEventListener('click', async function() {
+    this.disabled = true;
+    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Disconnecting...';
+    
+    try {
+        // Ethereum Mainnet'e geçmeyi dene (1)
+        try {
+            await window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: '0x1' }], // Ethereum Mainnet
+            });
+            
+            showNotification('Success', 'Disconnected from Monad Testnet!', 'success');
+        } catch (error) {
+            console.error('Error switching network:', error);
+            
+            // Alternatif olarak, kullanıcıya manuel disconnect talimatları gösterme
+            showDisconnectInstructions();
+        }
+        
+        // Bağlantı durumunu güncelle
+        updateConnectionStatus();
+    } catch (error) {
+        console.error('Error disconnecting:', error);
+        showNotification('Error', 'Failed to disconnect: ' + error.message, 'error');
+    } finally {
+        this.disabled = false;
+        this.innerHTML = '<i class="fas fa-sign-out-alt"></i> Disconnect from Monad';
+    }
+});
+
+// Manuel disconnect talimatları gösteren fonksiyon
+function showDisconnectInstructions() {
+    const modalContent = `
+        <div class="modal-header">
+            <h5 class="modal-title">Manual Disconnect Instructions</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+            <p>To manually disconnect from Monad Testnet:</p>
+            <ol>
+                <li>Click on your MetaMask extension</li>
+                <li>Click on the account icon in the top-right corner</li>
+                <li>Select "Connected sites"</li>
+                <li>Find this website in the list and click the three dots</li>
+                <li>Select "Disconnect this site"</li>
+            </ol>
+            <p>After disconnecting, refresh this page to update the connection status.</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+    `;
+    
+    // Modal'ı göster
+    const modalElement = document.getElementById('infoModal') || createInfoModal();
+    modalElement.querySelector('.modal-content').innerHTML = modalContent;
+    
+    const bsModal = new bootstrap.Modal(modalElement);
+    bsModal.show();
+}
+
+// Basit bir bilgi modalı oluşturan yardımcı fonksiyon
+function createInfoModal() {
+    const modalDiv = document.createElement('div');
+    modalDiv.className = 'modal fade';
+    modalDiv.id = 'infoModal';
+    modalDiv.tabIndex = '-1';
+    modalDiv.setAttribute('aria-labelledby', 'infoModalLabel');
+    modalDiv.setAttribute('aria-hidden', 'true');
+    
+    modalDiv.innerHTML = `
+        <div class="modal-dialog">
+            <div class="modal-content"></div>
+        </div>
+    `;
+    
+    document.body.appendChild(modalDiv);
+    return modalDiv;
+}
+
+// Metamask olaylarını dinle
+if (window.ethereum) {
+    window.ethereum.on('accountsChanged', updateConnectionStatus);
+    window.ethereum.on('chainChanged', updateConnectionStatus);
+    
+    // Sayfa yüklendiğinde bağlantı durumunu kontrol et
+    document.addEventListener('DOMContentLoaded', updateConnectionStatus);
+}
+
+
+
 // Monad Testnet'i Metamask'a ekleyen fonksiyon
-
-
 
 async function addMonadTestnetToMetamask() {
     // Metamask'ın yüklü olup olmadığını kontrol et
