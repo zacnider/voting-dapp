@@ -4,6 +4,9 @@ let contract;
 let blockchains = [];
 let maxVotes = 0;
 let isConnected = false;
+let xpProgressBarElement = null;
+let userXPElement = null;
+let remainingVotesElement = null;
 let darkMode = localStorage.getItem('darkMode') === 'true';  
                   
                   // Contract address and ABI
@@ -283,6 +286,12 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
                     
                     
                     // Sayfa yüklendiğinde çalışacak kodlar
+                  document.addEventListener('DOMContentLoaded', function() {
+                  xpProgressBarElement = document.getElementById('xpProgressBar');
+                  userXPElement = document.getElementById('userXP');
+                  remainingVotesElement = document.getElementById('remainingVotes');
+
+
                     document.addEventListener('DOMContentLoaded', () => {
                         // Dark mode kontrolü
                         if (darkMode) {
@@ -510,39 +519,53 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
             }
         }
         
-        async function updateUserStats() {
-            if (!isConnected) return;
-            
-            try {
-                const remainingVotes = await contract.getRemainingVotes();
-                const usedVotes = 20 - remainingVotes.toNumber();
-                document.getElementById('todayVotes').textContent = `${usedVotes}/20`;
-                
-                const address = await signer.getAddress();
-                const userXP = await contract.getUserXP(address);
-                const xp = userXP.toNumber();
-                document.getElementById('totalXP').textContent = xp;
-                document.getElementById('currentXP').textContent = `${xp} XP`;
-                
-                // Level hesaplama (her 100 XP'de bir level)
-                const level = Math.floor(xp / 100);
-                const nextLevelXP = (level + 1) * 100;
-                const progress = (xp % 100) / 100 * 100;
-                
-                document.getElementById('userLevel').innerHTML = `<i class="fas fa-star"></i> Level ${level}`;
-                document.getElementById('nextLevelXP').textContent = `Next level: ${nextLevelXP} XP`;
-                document.getElementById('xpProgress').style.width = `${progress}%`;
-                
-                // Reward tab'daki ilerleme çubuklarını güncelle
-                const rewardBars = document.querySelectorAll('#rewardsTab .vote-progress');
-                rewardBars.style.width = Math.min(xp / 500 * 100, 100) + '%';
-                rewardBars.style.width = Math.min(xp / 1000 * 100, 100) + '%';
-                rewardBars.style.width = Math.min(xp / 2500 * 100, 100) + '%';
-                
-            } catch (error) {
-                console.error("Error updating user stats:", error);
-            }
+function updateUserStats(xp, remainingVotes) {
+    try {
+        // XP ve remainingVotes değerlerini güvenli şekilde al
+        xp = xp || 0;
+        remainingVotes = remainingVotes || 0;
+        
+        // Elementleri kontrol et, belki de sayfa yeniden yüklenmiştir
+        if (!xpProgressBarElement) {
+            xpProgressBarElement = document.getElementById('xpProgressBar');
         }
+        
+        if (!userXPElement) {
+            userXPElement = document.getElementById('userXP');
+        }
+        
+        if (!remainingVotesElement) {
+            remainingVotesElement = document.getElementById('remainingVotes');
+        }
+        
+        // XP ile ilgili hesaplamalar
+        const level = Math.floor(xp / 100) + 1;
+        const xpForCurrentLevel = (level - 1) * 100;
+        const xpForNextLevel = level * 100;
+        const xpProgress = xp - xpForCurrentLevel;
+        const progressPercentage = (xpProgress / 100) * 100;
+        
+        // DOM elementlerini güvenli şekilde güncelle
+        if (userXPElement) {
+            userXPElement.textContent = xp;
+        }
+        
+        if (remainingVotesElement) {
+            remainingVotesElement.textContent = remainingVotes;
+        }
+        
+        if (xpProgressBarElement) {
+            xpProgressBarElement.style.width = `${progressPercentage}%`;
+            xpProgressBarElement.setAttribute('aria-valuenow', progressPercentage);
+        } else {
+            console.warn("XP progress bar element not found, progress cannot be updated");
+        }
+        
+        console.log("User stats updated successfully");
+    } catch (error) {
+        console.error("Error updating user stats:", error);
+    }
+}
         
         async function loadBlockchains() {
             if (!isConnected) return;
