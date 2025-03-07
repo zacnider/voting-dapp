@@ -444,7 +444,160 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
     
     console.log("Leaderboard rendering complete!");
 }
+
+// Monad Testnet'i Metamask'a ekleyen fonksiyon
+async function addMonadTestnetToMetamask() {
+    // Metamask'ın yüklü olup olmadığını kontrol et
+    if (typeof window.ethereum === 'undefined') {
+        showNotification('Error', 'Metamask is not installed!', 'error');
+        return false;
+    }
+
+    try {
+        // Monad Testnet parametreleri
+        const monadTestnet = {
+            chainId: '0x' + (3001).toString(16), // 3001 (decimal) -> 0xbb9 (hex)
+            chainName: 'Monad Testnet',
+            nativeCurrency: {
+                name: 'Monad',
+                symbol: 'MONAD',
+                decimals: 18,
+            },
+            rpcUrls: ['https://dev-testnet.monad.xyz/rpc'],
+            blockExplorerUrls: ['https://explorer.dev-testnet.monad.xyz'],
+            iconUrls: ['https://monad.xyz/logo.png'], // Monad logosu varsa ekleyin
+        };
+
+        // Metamask'a ağ ekleme isteği gönder
+        const result = await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [monadTestnet],
+        });
+
+        // Başarılı ise bildirim göster
+        if (result === null) {
+            showNotification('Success', 'Monad Testnet has been added to Metamask!', 'success');
+            return true;
+        }
         
+        return false;
+    } catch (error) {
+        console.error('Error adding Monad Testnet to Metamask:', error);
+        
+        // Kullanıcı dostu hata mesajları
+        if (error.code === 4001) {
+            showNotification('Info', 'You rejected the request to add Monad Testnet.', 'info');
+        } else {
+            showNotification('Error', `Failed to add Monad Testnet: ${error.message}`, 'error');
+        }
+        
+        return false;
+    }
+}
+
+// Event listener ekle
+document.addEventListener('DOMContentLoaded', function() {
+    const addMonadButton = document.getElementById('addMonadTestnet');
+    
+    if (addMonadButton) {
+        addMonadButton.addEventListener('click', async function() {
+            // Butonu devre dışı bırak
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+            
+            try {
+                const success = await addMonadTestnetToMetamask();
+                
+                // Başarılıysa butonu güncelle
+                if (success) {
+                    this.innerHTML = '<i class="fas fa-check"></i> Monad Testnet Added';
+                    this.classList.remove('btn-primary');
+                    this.classList.add('btn-success');
+                    
+                    // Opsiyonel: Ağı değiştirme isteği
+                    await switchToMonadTestnet();
+                } else {
+                    // Buton içeriğini sıfırla
+                    this.innerHTML = '<i class="fas fa-plus-circle"></i> Add Monad Testnet';
+                    this.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error in button click handler:', error);
+                
+                // Buton içeriğini sıfırla
+                this.innerHTML = '<i class="fas fa-plus-circle"></i> Add Monad Testnet';
+                this.disabled = false;
+            }
+        });
+    }
+});
+
+// Monad Testnet'e geçiş yap
+async function switchToMonadTestnet() {
+    try {
+        await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x' + (3001).toString(16) }], // 0xbb9
+        });
+        
+        showNotification('Success', 'Switched to Monad Testnet!', 'success');
+        return true;
+    } catch (error) {
+        console.error('Error switching to Monad Testnet:', error);
+        
+        // Kullanıcı reddetti veya diğer hatalar
+        if (error.code !== 4001) { // 4001: User rejected the request
+            showNotification('Error', `Failed to switch to Monad Testnet: ${error.message}`, 'error');
+        }
+        
+        return false;
+    }
+}
+
+// Bildirim gösterme fonksiyonu (eğer zaten uygulamanızda varsa, bunu kullanın)
+function showNotification(title, message, type) {
+    // Bildirim sisteminize göre uyarlayın
+    console.log(`[${type.toUpperCase()}] ${title}: ${message}`);
+    
+    // Bootstrap Toast örneği
+    const toastContainer = document.getElementById('toastContainer') || createToastContainer();
+    
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <strong>${title}</strong>: ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    // Bootstrap Toast nesnesini başlat
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    // 5 saniye sonra kaldır
+    setTimeout(() => {
+        toast.remove();
+    }, 5000);
+}
+
+// Toast container oluşturan yardımcı fonksiyon
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toastContainer';
+    container.className = 'toast-container position-fixed top-0 end-0 p-3';
+    document.body.appendChild(container);
+    return container;
+}
+
         async function connectWallet() {
             if (window.ethereum) {
                 try {
