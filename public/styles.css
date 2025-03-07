@@ -667,3 +667,20 @@ body.dark-theme {
         text-align: center;
     }
 }
+
+#addMonadTestnet {
+    transition: all 0.3s ease;
+}
+
+#addMonadTestnet:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+#addMonadTestnet.btn-success {
+    pointer-events: none;
+}
+
+.toast {
+    opacity: 0.95;
+}
